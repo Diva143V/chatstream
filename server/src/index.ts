@@ -103,20 +103,31 @@ registerSocketHandlers(io);
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
-httpServer.listen(PORT, '0.0.0.0', async () => {
-  console.log(`🚀 ChatStream server running on 0.0.0.0:${PORT}`);
-
+async function startServer() {
   try {
+    console.log('⏳ Starting server bootstrap...');
+
+    // Connect to database before listening
     await prisma.$connect();
     console.log('✅ Database connected successfully');
+
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 ChatStream server live on 0.0.0.0:${PORT}`);
+    }).on('error', (err: Error) => {
+      console.error('❌ SERVER LISTEN ERROR:', err.message);
+      process.exit(1);
+    });
+
   } catch (error) {
-    console.error('❌ DATABASE CONNECTION ERROR:', error instanceof Error ? error.message : error);
+    console.error('❌ FATAL BOOTSTRAP ERROR:', error instanceof Error ? error.message : error);
+    if (error instanceof Error && error.stack) {
+      console.error(error.stack);
+    }
     process.exit(1);
   }
-}).on('error', (err: Error) => {
-  console.error('❌ SERVER START ERROR:', err.message);
-  process.exit(1);
-});
+}
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
