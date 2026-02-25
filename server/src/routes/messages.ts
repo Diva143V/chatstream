@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { uploadAttachment } from '../lib/cloudinary';
-
+import { MemberRole } from '@prisma/client';
 const router = Router();
 
 const messageSelect = {
@@ -167,7 +167,9 @@ router.delete('/:messageId', authenticate, async (req: AuthRequest, res: Respons
     if (!message) return res.status(404).json({ error: 'Message not found' });
 
     const isAuthor = message.authorId === req.user!.id;
-    const isAdmin = message.channel?.server.members.some((m: any) => ['ADMIN', 'OWNER'].includes(m.role));
+    const isAdmin = message.channel?.server.members.some((m) =>
+  m.role === 'ADMIN' || m.role === 'OWNER'
+);
 
     if (!isAuthor && !isAdmin) {
       return res.status(403).json({ error: 'Permission denied' });

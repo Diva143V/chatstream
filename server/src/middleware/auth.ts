@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, {SignOptions} from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 
 export interface AuthRequest extends Request {
@@ -56,6 +56,6 @@ export const authenticate = async (
 
 export const generateToken = (payload: { id: string; email: string; username: string }) => {
   return jwt.sign(payload, process.env.JWT_SECRET as string, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  } as any);
+    expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'],
+  });
 };

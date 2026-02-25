@@ -34,7 +34,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       include: { server: { select: serverSelect } },
     });
 
-    const servers = memberships.map((m: any) => m.server);
+    const servers = memberships.map((m) => m.server);
     return res.json({ servers });
   } catch (error) {
     console.error('Get servers error:', error);

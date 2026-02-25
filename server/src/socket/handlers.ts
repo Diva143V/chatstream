@@ -46,7 +46,7 @@ export function registerSocketHandlers(io: Server) {
       select: { serverId: true },
     });
 
-    memberships.forEach(({ serverId }: any) => {
+    memberships.forEach(({ serverId }: { serverId: string }) => {
       socket.join(`server:${serverId}`);
     });
 
