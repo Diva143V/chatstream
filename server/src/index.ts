@@ -103,8 +103,8 @@ registerSocketHandlers(io);
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
-httpServer.listen(PORT, async () => {
-  console.log(`🚀 ChatStream server running on port ${PORT}`);
+httpServer.listen(PORT, '0.0.0.0', async () => {
+  console.log(`🚀 ChatStream server running on 0.0.0.0:${PORT}`);
 
   try {
     await prisma.$connect();
@@ -113,6 +113,9 @@ httpServer.listen(PORT, async () => {
     console.error('❌ DATABASE CONNECTION ERROR:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
+}).on('error', (err: Error) => {
+  console.error('❌ SERVER START ERROR:', err.message);
+  process.exit(1);
 });
 
 // Graceful shutdown
