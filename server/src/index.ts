@@ -17,12 +17,25 @@ import friendRoutes from './routes/friends';
 const app = express();
 const httpServer = createServer(app);
 
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+// Support comma-separated list of allowed origins, e.g.:
+// CLIENT_URL=https://chatstream.vercel.app,https://chatstream-git-main.vercel.app
+const RAW_CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+const ALLOWED_ORIGINS = RAW_CLIENT_URL.split(',').map((s) => s.trim());
+
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (e.g. curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+};
 
 // Socket.IO
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: CLIENT_URL,
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -30,12 +43,7 @@ const io = new SocketIOServer(httpServer, {
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
-app.use(
-  cors({
-    origin: CLIENT_URL,
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
 
 app.use(
   helmet({

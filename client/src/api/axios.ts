@@ -1,9 +1,16 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
+// In production (Vercel), VITE_API_URL is set to the Render backend URL.
+// In development, it falls back to '/api' which is proxied by Vite to localhost:3001.
+const API_BASE_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: false,
 });
 
 // ─── Request Interceptor: attach JWT ─────────────────────────────────────────
