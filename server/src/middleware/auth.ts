@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt, {SignOptions} from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 
 export interface AuthRequest extends Request {
@@ -7,10 +7,10 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     username: string;
-  };  params: Record<string, string>;
-  query: Record<string, string | string[]>;
-  body: any;
-  files?: any;}
+  };
+  file?: Express.Multer.File;
+  files?: { [fieldname: string]: Express.Multer.File[] } | Express.Multer.File[];
+}
 
 export const authenticate = async (
   req: AuthRequest,
