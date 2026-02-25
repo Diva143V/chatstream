@@ -1,4 +1,4 @@
-import { MessageSquare, Plus, Compass, Zap } from 'lucide-react';
+import { Plus, Compass, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useServerStore } from '@/store/useServerStore';
 import { useUIStore } from '@/store/useUIStore';

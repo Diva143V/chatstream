@@ -107,7 +107,7 @@ export interface DmParticipant {
 export interface DirectMessage {
   id: string;
   participants: DmParticipant[];
-  messages: Pick<Message, 'id' | 'content' | 'createdAt' | 'authorId'>[];
+  messages: Pick<Message, 'id' | 'content' | 'createdAt' | 'author'>[];
   updatedAt: string;
 }
 

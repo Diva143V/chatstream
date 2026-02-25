@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Hash, Volume2, Megaphone, ChevronDown, ChevronRight } from 'lucide-react';
 import { useServerStore } from '@/store/useServerStore';
-import { useUIStore } from '@/store/useUIStore';
 import { cn } from '@/lib/utils';
 import type { Channel, ChannelType } from '@/types';
 import { UserPanel } from './UserPanel';

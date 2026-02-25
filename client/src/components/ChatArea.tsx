@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useChannelMessages } from '@/hooks/useMessages';
 import { useSocket } from '@/hooks/useSocket';
 import { MessageInput } from './MessageInput';
-import { cn, formatMessageTime, formatDateDivider, getStatusColor } from '@/lib/utils';
+import { cn, formatMessageTime, formatDateDivider } from '@/lib/utils';
 import type { Message, MessageGroup } from '@/types';
 
 // ─── Message Action Toolbar ───────────────────────────────────────────────────
