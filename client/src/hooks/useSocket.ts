@@ -36,9 +36,11 @@ export function useSocket() {
 
     const socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ['polling', 'websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      transports: ['websocket', 'polling'], // Prioritize websocket
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 20000,
+      withCredentials: true,
     });
 
     socketRef.current = socket;
