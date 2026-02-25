@@ -167,7 +167,7 @@ router.delete('/:messageId', authenticate, async (req: AuthRequest, res: Respons
     if (!message) return res.status(404).json({ error: 'Message not found' });
 
     const isAuthor = message.authorId === req.user!.id;
-    const isAdmin = message.channel?.server.members.some((m) => ['ADMIN', 'OWNER'].includes(m.role));
+    const isAdmin = message.channel?.server.members.some((m: any) => ['ADMIN', 'OWNER'].includes(m.role));
 
     if (!isAuthor && !isAdmin) {
       return res.status(403).json({ error: 'Permission denied' });
