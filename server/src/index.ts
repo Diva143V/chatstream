@@ -72,12 +72,12 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/friends', friendRoutes);
 
 // Health check
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // 404 handler
-app.use((_req, res) => {
+app.use((_req: express.Request, res: express.Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 

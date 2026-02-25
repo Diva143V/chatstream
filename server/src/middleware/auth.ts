@@ -7,8 +7,10 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     username: string;
-  };
-}
+  };  params: Record<string, string>;
+  query: Record<string, string | string[]>;
+  body: any;
+  files?: any;}
 
 export const authenticate = async (
   req: AuthRequest,
