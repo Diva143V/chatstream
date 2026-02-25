@@ -108,9 +108,9 @@ httpServer.listen(PORT, async () => {
 
   try {
     await prisma.$connect();
-    console.log('✅ Database connected');
+    console.log('✅ Database connected successfully');
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
+    console.error('❌ DATABASE CONNECTION ERROR:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 });
