@@ -1,0 +1,268 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  password      String
+  avatar        String?
+  banner        String?
+  bio           String?
+  status        UserStatus @default(OFFLINE)
+  statusText    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  ownedServers  Server[]  @relation("ServerOwner")
+  memberships   ServerMember[]
+  messages      Message[]
+  sentFriendRequests    Friend[] @relation("FriendRequester")
+  receivedFriendRequests Friend[] @relation("FriendReceiver")
+  dmParticipants DirectMessageParticipant[]
+  reactions     MessageReaction[]
+  notifications Notification[]
+  settings      UserSettings?
+
+  @@map("users")
+}
+
+model UserSettings {
+  id                    String  @id @default(cuid())
+  userId                String  @unique
+  theme                 Theme   @default(DARK)
+  accentColor           String  @default("#6B4EFF")
+  fontSize              FontSize @default(MEDIUM)
+  messageDisplay        MessageDisplay @default(COZY)
+  showAvatars           Boolean @default(true)
+  playNotificationSounds Boolean @default(true)
+  showNotifications     Boolean @default(true)
+  showStatus            Boolean @default(true)
+  allowFriendRequests   Boolean @default(true)
+  allowDMs              DMPrivacy @default(FRIENDS)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model Server {
+  id          String  @id @default(cuid())
+  name        String
+  icon        String?
+  banner      String?
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner    User   @relation("ServerOwner", fields: [ownerId], references: [id])
+  members  ServerMember[]
+  channels Channel[]
+
+  @@map("servers")
+}
+
+model ServerMember {
+  id       String @id @default(cuid())
+  userId   String
+  serverId String
+  role     MemberRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serverId])
+  @@map("server_members")
+}
+
+model Channel {
+  id       String      @id @default(cuid())
+  name     String
+  type     ChannelType @default(TEXT)
+  serverId String
+  category String?
+  position Int         @default(0)
+  topic    String?
+  createdAt DateTime   @default(now())
+
+  server   Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("channels")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String
+  channelId String
+  dmId      String?
+  edited    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author      User              @relation(fields: [authorId], references: [id])
+  channel     Channel?          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  directMessage DirectMessage?  @relation(fields: [dmId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+  reactions   MessageReaction[]
+
+  @@index([channelId])
+  @@index([dmId])
+  @@map("messages")
+}
+
+model Attachment {
+  id        String         @id @default(cuid())
+  messageId String
+  type      AttachmentType
+  url       String
+  name      String
+  size      Int?
+  createdAt DateTime       @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@map("message_reactions")
+}
+
+model Friend {
+  id          String       @id @default(cuid())
+  requesterId String
+  receiverId  String
+  status      FriendStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  requester User @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiver  User @relation("FriendReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, receiverId])
+  @@map("friends")
+}
+
+model DirectMessage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants DirectMessageParticipant[]
+  messages     Message[]
+
+  @@map("direct_messages")
+}
+
+model DirectMessageParticipant {
+  id      String @id @default(cuid())
+  dmId    String
+  userId  String
+
+  dm   DirectMessage @relation(fields: [dmId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dmId, userId])
+  @@map("dm_participants")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  content   String
+  read      Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+// Enums
+enum UserStatus {
+  ONLINE
+  IDLE
+  DND
+  OFFLINE
+}
+
+enum Theme {
+  DARK
+  LIGHT
+  SYSTEM
+}
+
+enum FontSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum MessageDisplay {
+  COZY
+  COMPACT
+}
+
+enum DMPrivacy {
+  EVERYONE
+  FRIENDS
+  NONE
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum ChannelType {
+  TEXT
+  VOICE
+  ANNOUNCEMENT
+}
+
+enum AttachmentType {
+  IMAGE
+  VIDEO
+  FILE
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+enum NotificationType {
+  MESSAGE
+  FRIEND_REQUEST
+  MENTION
+  SYSTEM
+}
