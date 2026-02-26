@@ -93,6 +93,27 @@ export function registerSocketHandlers(io: Server) {
           return;
         }
 
+        // Check for active timeout
+        const latestTimeout = await prisma.moderationAction.findFirst({
+          where: {
+            targetId: userId,
+            serverId: channel.serverId,
+            type: { in: ['TIMEOUT', 'UNTIMEOUT'] },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (latestTimeout && latestTimeout.type === 'TIMEOUT') {
+          const isExpired = latestTimeout.expiresAt ? new Date() > latestTimeout.expiresAt : false;
+          if (!isExpired) {
+            socket.emit('error', {
+              message: 'You are timed out from sending messages in this server',
+              expiresAt: latestTimeout.expiresAt
+            });
+            return;
+          }
+        }
+
         const message = await prisma.message.create({
           data: { content: content.trim(), authorId: userId, channelId },
           select: {

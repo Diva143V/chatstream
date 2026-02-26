@@ -74,7 +74,7 @@ function ChannelGroup({
 
 export function Sidebar() {
   const { selectedServer, selectedChannelId, selectChannel } = useServerStore();
-  const { dmMode, selectedDMId, setDMMode } = useUIStore();
+  const { dmMode, selectedDMId, setDMMode, toggleInvite } = useUIStore();
   const { friends, dmChannels, fetchFriends, fetchDMs } = useDMStore();
   const { user } = useAuthStore();
 
@@ -171,10 +171,16 @@ export function Sidebar() {
   return (
     <aside className="w-60 bg-surface-raised flex flex-col border-r border-white/5 flex-shrink-0">
       {/* Server header */}
-      <button className="h-14 px-4 flex items-center justify-between border-b border-white/5 hover:bg-white/5 transition-colors">
-        <h2 className="font-semibold text-white truncate">{selectedServer.name}</h2>
-        <ChevronDown className="w-4 h-4 text-white/40 flex-shrink-0" />
-      </button>
+      <div className="h-14 px-4 flex items-center justify-between border-b border-white/5 bg-surface-base/30 backdrop-blur-sm sticky top-0 z-10">
+        <h2 className="font-semibold text-white truncate flex-1">{selectedServer.name}</h2>
+        <button
+          onClick={() => toggleInvite(true)}
+          className="p-1.5 text-white/40 hover:text-brand-light hover:bg-brand/10 rounded-lg transition-all"
+          title="Invite People"
+        >
+          <Plus className="w-5 h-5" />
+        </button>
+      </div>
 
       {/* Server description */}
       {selectedServer.description && (

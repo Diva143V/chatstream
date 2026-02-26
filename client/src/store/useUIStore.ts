@@ -12,6 +12,8 @@ interface UIStore {
   showCreateServer: boolean;
   showJoinServer: boolean;
   showAddFriend: boolean;
+  showInvite: boolean;
+  showSearch: boolean;
 
   // DMs
   selectedDMId: string | null;
@@ -31,6 +33,8 @@ interface UIStore {
   toggleCreateServer: (show?: boolean) => void;
   toggleJoinServer: (show?: boolean) => void;
   toggleAddFriend: (show?: boolean) => void;
+  toggleInvite: (show?: boolean) => void;
+  toggleSearch: (show?: boolean) => void;
   setDMMode: (on: boolean, dmId?: string | null) => void;
   setCall: (id: string | null) => void;
   setTyping: (channelId: string, username: string, isTyping: boolean) => void;
@@ -45,6 +49,8 @@ export const useUIStore = create<UIStore>((set) => ({
   showCreateServer: false,
   showJoinServer: false,
   showAddFriend: false,
+  showInvite: false,
+  showSearch: false,
   selectedDMId: null,
   dmMode: false,
   activeCallId: null,
@@ -62,6 +68,8 @@ export const useUIStore = create<UIStore>((set) => ({
   toggleCreateServer: (show) => set((s) => ({ showCreateServer: show ?? !s.showCreateServer })),
   toggleJoinServer: (show) => set((s) => ({ showJoinServer: show ?? !s.showJoinServer })),
   toggleAddFriend: (show) => set((s) => ({ showAddFriend: show ?? !s.showAddFriend })),
+  toggleInvite: (show) => set((s) => ({ showInvite: show ?? !s.showInvite })),
+  toggleSearch: (show) => set((s) => ({ showSearch: show ?? !s.showSearch })),
 
   setDMMode: (on, dmId = null) => set({ dmMode: on, selectedDMId: dmId }),
   setCall: (id) => set({ activeCallId: id }),

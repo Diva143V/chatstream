@@ -14,6 +14,9 @@ import serverRoutes from './routes/servers';
 import messageRoutes from './routes/messages';
 import friendRoutes from './routes/friends';
 import voiceRoutes from './routes/voice';
+import inviteRoutes from './routes/invites';
+import searchRoutes from './routes/search';
+import moderationRoutes from './routes/moderation';
 
 const app = express();
 const httpServer = createServer(app);
@@ -80,6 +83,9 @@ app.use('/api/servers', serverRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/voice', voiceRoutes);
+app.use('/api/invites', inviteRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/servers', moderationRoutes);
 
 // Health check
 app.get('/health', (_req: express.Request, res: express.Response) => {

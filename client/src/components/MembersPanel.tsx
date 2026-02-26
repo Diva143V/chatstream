@@ -4,7 +4,9 @@ import { useServerStore } from '@/store/useServerStore';
 import { useUIStore } from '@/store/useUIStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { cn, getStatusColor } from '@/lib/utils';
+import { Shield } from 'lucide-react';
 import type { ServerMember } from '@/types';
+import { ModerationModal } from './modals/ModerationModal';
 
 type StatusGroup = 'ONLINE' | 'IDLE' | 'DND' | 'OFFLINE';
 
@@ -16,40 +18,62 @@ const STATUS_LABELS: Record<StatusGroup, string> = {
   OFFLINE: 'Offline',
 };
 
-function MemberItem({ member, isCurrentUser }: { member: ServerMember; isCurrentUser: boolean }) {
+function MemberItem({
+  member,
+  isCurrentUser,
+  canModerate,
+  onModerate
+}: {
+  member: ServerMember;
+  isCurrentUser: boolean;
+  canModerate: boolean;
+  onModerate: () => void;
+}) {
   const { openProfile } = useUIStore();
 
   return (
-    <button
-      onClick={() => openProfile(member.userId)}
-      className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors group text-left"
-    >
-      {/* Avatar with status */}
-      <div className="relative flex-shrink-0">
-        {member.user.avatar ? (
-          <img src={member.user.avatar} alt={member.user.username} className="w-8 h-8 rounded-full" />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-white text-sm font-bold">
-            {member.user.username[0].toUpperCase()}
-          </div>
-        )}
-        <div className={cn('absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-raised', getStatusColor(member.user.status))} />
-      </div>
+    <div className="flex items-center gap-1 group/item px-2 py-0.5">
+      <button
+        onClick={() => openProfile(member.userId)}
+        className="flex-1 flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-left min-w-0"
+      >
+        {/* Avatar with status */}
+        <div className="relative flex-shrink-0">
+          {member.user.avatar ? (
+            <img src={member.user.avatar} alt={member.user.username} className="w-8 h-8 rounded-full shadow-lg" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-white text-sm font-bold shadow-lg">
+              {member.user.username[0].toUpperCase()}
+            </div>
+          )}
+          <div className={cn('absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-raised transition-transform group-hover/item:scale-110', getStatusColor(member.user.status))} />
+        </div>
 
-      {/* User info */}
-      <div className="flex-1 min-w-0">
-        <p className={cn(
-          'text-sm font-medium truncate',
-          isCurrentUser ? 'text-brand-light' : 'text-white/70 group-hover:text-white'
-        )}>
-          {member.user.username}
-          {isCurrentUser && <span className="text-white/30 ml-1 text-xs font-normal">(you)</span>}
-        </p>
-        {member.user.statusText && (
-          <p className="text-xs text-white/30 truncate">{member.user.statusText}</p>
-        )}
-      </div>
-    </button>
+        {/* User info */}
+        <div className="flex-1 min-w-0">
+          <p className={cn(
+            'text-sm font-medium truncate',
+            isCurrentUser ? 'text-brand-light' : 'text-white/70 group-hover/item:text-white'
+          )}>
+            {member.user.username}
+            {isCurrentUser && <span className="text-white/30 ml-1 text-xs font-normal">(you)</span>}
+          </p>
+          {member.user.statusText && (
+            <p className="text-[10px] text-white/20 truncate group-hover/item:text-white/40">{member.user.statusText}</p>
+          )}
+        </div>
+      </button>
+
+      {canModerate && !isCurrentUser && (
+        <button
+          onClick={onModerate}
+          title="Moderate User"
+          className="p-2 text-white/0 group-hover/item:text-white/20 hover:text-brand-light hover:bg-brand/10 rounded-lg transition-all"
+        >
+          <Shield className="w-4 h-4" />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -58,6 +82,13 @@ export function MembersPanel() {
   const { membersPanelOpen } = useUIStore();
   const { user } = useAuthStore();
   const [query, setQuery] = useState('');
+  const [moderatingMember, setModeratingMember] = useState<ServerMember | null>(null);
+
+  const viewer = useMemo(() => {
+    return selectedServer?.members.find((m) => m.userId === user?.id);
+  }, [selectedServer?.members, user?.id]);
+
+  const canModerateEveryone = viewer && ['OWNER', 'ADMIN', 'MODERATOR'].includes(viewer.role);
 
   if (!membersPanelOpen || !selectedServer) return null;
 
@@ -116,6 +147,8 @@ export function MembersPanel() {
                     key={member.userId}
                     member={member}
                     isCurrentUser={member.userId === user?.id}
+                    canModerate={!!canModerateEveryone}
+                    onModerate={() => setModeratingMember(member)}
                   />
                 ))}
               </div>
@@ -123,6 +156,13 @@ export function MembersPanel() {
           );
         })}
       </div>
+
+      {moderatingMember && (
+        <ModerationModal
+          member={moderatingMember}
+          onClose={() => setModeratingMember(null)}
+        />
+      )}
     </aside>
   );
 }

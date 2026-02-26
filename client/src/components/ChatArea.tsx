@@ -201,7 +201,7 @@ interface ChannelHeaderProps {
 
 function ChannelHeader({ onInitiateCall }: ChannelHeaderProps) {
   const { selectedServer, selectedChannel } = useServerStore();
-  const { dmMode, selectedDMId, membersPanelOpen, toggleMembersPanel } = useUIStore();
+  const { dmMode, selectedDMId, membersPanelOpen, toggleMembersPanel, toggleSearch } = useUIStore();
   const { dmChannels } = useDMStore();
 
   if (dmMode && selectedDMId) {
@@ -279,13 +279,13 @@ function ChannelHeader({ onInitiateCall }: ChannelHeaderProps) {
           <span className="text-sm">{selectedServer?.members.length ?? 0}</span>
         </button>
         <div className="w-px h-6 bg-white/10 mx-1" />
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-          <input
-            placeholder="Search"
-            className="pl-9 pr-3 py-1.5 bg-surface-raised border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand w-36 transition-all"
-          />
-        </div>
+        <button
+          onClick={() => toggleSearch(true)}
+          className="relative group h-8 flex items-center bg-surface-raised border border-white/10 rounded-lg px-3 text-white/30 hover:text-white/60 hover:bg-white/5 transition-all w-36"
+        >
+          <Search className="w-4 h-4 mr-2" />
+          <span className="text-sm truncate">Search</span>
+        </button>
       </div>
     </div>
   );

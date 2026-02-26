@@ -2,6 +2,8 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { generateInviteCode } from '../lib/utils';
+import { logAuditAction } from '../lib/audit';
 
 const router = Router();
 
@@ -131,6 +133,15 @@ router.post('/:serverId/channels', authenticate, async (req: AuthRequest, res: R
       data: { name, type, serverId, category, position },
     });
 
+    await logAuditAction({
+      serverId,
+      actorId: req.user!.id,
+      action: 'CHANNEL_CREATE',
+      targetType: 'CHANNEL',
+      targetId: channel.id,
+      changes: { name, type, category },
+    });
+
     return res.status(201).json({ channel });
   } catch (error) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors[0].message });
@@ -139,19 +150,128 @@ router.post('/:serverId/channels', authenticate, async (req: AuthRequest, res: R
   }
 });
 
+// GET /api/servers/:serverId/invites — list invites for a server
+router.get('/:serverId/invites', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { serverId } = req.params;
+
+    // Check permissions
+    const member = await prisma.serverMember.findUnique({
+      where: { userId_serverId: { userId: req.user!.id, serverId } },
+    });
+
+    if (!member || !['OWNER', 'ADMIN', 'MODERATOR'].includes(member.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const invites = await prisma.invite.findMany({
+      where: { serverId },
+      orderBy: { createdAt: 'desc' },
+      include: { creator: { select: { id: true, username: true, avatar: true } } },
+    });
+
+    return res.json({ invites });
+  } catch (error) {
+    console.error('Get invites error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/servers/:serverId/invites — create an invite
+router.post('/:serverId/invites', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { serverId } = req.params;
+    const { maxUses, expirationInHours } = z
+      .object({
+        maxUses: z.number().int().min(1).max(100).nullable().optional(), // null = unlimited
+        expirationInHours: z.number().int().min(1).max(720).nullable().optional(), // null = never
+      })
+      .parse(req.body);
+
+    // Check permissions
+    const member = await prisma.serverMember.findUnique({
+      where: { userId_serverId: { userId: req.user!.id, serverId } },
+    });
+
+    if (!member || !['OWNER', 'ADMIN', 'MODERATOR'].includes(member.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const code = generateInviteCode();
+    const expiresAt = expirationInHours ? new Date(Date.now() + expirationInHours * 60 * 60 * 1000) : null;
+
+    const invite = await prisma.invite.create({
+      data: {
+        code,
+        serverId,
+        creatorId: req.user!.id,
+        maxUses,
+        expiresAt,
+      },
+      include: { creator: { select: { id: true, username: true, avatar: true } } },
+    });
+
+    await logAuditAction({
+      serverId,
+      actorId: req.user!.id,
+      action: 'INVITE_CREATE',
+      targetType: 'INVITE',
+      targetId: invite.code,
+      changes: { maxUses, expiresAt },
+    });
+
+    return res.status(201).json({ invite });
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors[0].message });
+    console.error('Create invite error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // POST /api/servers/join/:inviteCode
 router.post('/join/:inviteCode', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    // In a full implementation, invite codes would be stored in a separate table
-    // For now, use server ID as invite code
     const { inviteCode } = req.params;
 
-    const server = await prisma.server.findUnique({
-      where: { id: inviteCode },
-      select: serverSelect,
+    const invite = await prisma.invite.findUnique({
+      where: { code: inviteCode },
+      include: {
+        server: { select: serverSelect }
+      }
     });
 
-    if (!server) return res.status(404).json({ error: 'Invalid invite' });
+    if (!invite) return res.status(404).json({ error: 'Invalid invite code' });
+
+    // Check expiration
+    if (invite.expiresAt && new Date() > invite.expiresAt) {
+      return res.status(410).json({ error: 'Invite has expired' });
+    }
+
+    // Check usage limits
+    if (invite.maxUses !== null && invite.uses >= invite.maxUses) {
+      return res.status(410).json({ error: 'Invite has reached max uses' });
+    }
+
+    const server = invite.server;
+
+    // Check for active ban
+    const latestBan = await prisma.moderationAction.findFirst({
+      where: {
+        targetId: req.user!.id,
+        serverId: server.id,
+        type: { in: ['BAN', 'UNBAN'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (latestBan && latestBan.type === 'BAN') {
+      const isPermanent = latestBan.expiresAt === null;
+      const isExpired = latestBan.expiresAt ? new Date() > latestBan.expiresAt : false;
+
+      if (isPermanent || !isExpired) {
+        return res.status(403).json({ error: 'You are banned from this server' });
+      }
+    }
 
     const existing = await prisma.serverMember.findUnique({
       where: { userId_serverId: { userId: req.user!.id, serverId: server.id } },
@@ -159,9 +279,16 @@ router.post('/join/:inviteCode', authenticate, async (req: AuthRequest, res: Res
 
     if (existing) return res.status(409).json({ error: 'Already a member' });
 
-    await prisma.serverMember.create({
-      data: { userId: req.user!.id, serverId: server.id, role: 'MEMBER' },
-    });
+    // Transaction to increment usage and join
+    const [updatedInvite, membership] = await prisma.$transaction([
+      prisma.invite.update({
+        where: { id: invite.id },
+        data: { uses: { increment: 1 } },
+      }),
+      prisma.serverMember.create({
+        data: { userId: req.user!.id, serverId: server.id, role: 'MEMBER', inviteId: invite.id },
+      }),
+    ]);
 
     return res.json({ server });
   } catch (error) {

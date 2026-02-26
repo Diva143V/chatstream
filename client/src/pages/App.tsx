@@ -14,6 +14,8 @@ import { ProfileModal } from '@/components/modals/ProfileModal';
 import { CreateServerModal } from '@/components/modals/CreateServerModal';
 import { JoinServerModal } from '@/components/modals/JoinServerModal';
 import { AddFriendModal } from '@/components/modals/AddFriendModal';
+import { InviteModal } from '@/components/modals/InviteModal';
+import { SearchSidebar } from '@/components/SearchSidebar';
 import { FriendsList } from '@/components/FriendsList';
 
 export default function App() {
@@ -58,6 +60,7 @@ export default function App() {
             <MembersPanel />
           </>
         )}
+        <SearchSidebar />
       </main>
 
       <Toaster
@@ -77,6 +80,7 @@ export default function App() {
       <CreateServerModal />
       <JoinServerModal />
       <AddFriendModal />
+      <InviteModal />
     </div>
   );
 }

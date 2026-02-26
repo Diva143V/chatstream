@@ -1,6 +1,7 @@
 // prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
 }
 
 datasource db {
@@ -31,6 +32,12 @@ model User {
   reactions     MessageReaction[]
   notifications Notification[]
   settings      UserSettings?
+  invites       Invite[]
+  moderationActionsTarget ModerationAction[] @relation("ModTarget")
+  moderationActionsModerator ModerationAction[] @relation("Moderator")
+  auditLogs     AuditLog[]
+  ownedBots     Bot[]
+  webhooks      Webhook[]
 
   @@map("users")
 }
@@ -48,6 +55,13 @@ model UserSettings {
   showStatus            Boolean @default(true)
   allowFriendRequests   Boolean @default(true)
   allowDMs              DMPrivacy @default(FRIENDS)
+
+  // Voice/Video Settings
+  voiceMode         VoiceMode @default(VOICE_ACTIVITY)
+  inputVolume       Int @default(100)
+  outputVolume      Int @default(100)
+  noiseSuppression  Boolean @default(true)
+  pushToTalkKey     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -67,6 +81,18 @@ model Server {
   owner    User   @relation("ServerOwner", fields: [ownerId], references: [id])
   members  ServerMember[]
   channels Channel[]
+  invites  Invite[]
+  moderationActions ModerationAction[]
+  auditLogs         AuditLog[]
+  roles             Role[]
+  webhooks          Webhook[]
+  botInstallations  BotInstallation[]
+
+  // Discovery
+  isPublic      Boolean @default(false)
+  tags          String[]
+  featured      Boolean @default(false)
+  memberCount   Int     @default(1)
 
   @@map("servers")
 }
@@ -75,11 +101,14 @@ model ServerMember {
   id       String @id @default(cuid())
   userId   String
   serverId String
+  inviteId String?
   role     MemberRole @default(MEMBER)
+  roles    Role[] @relation("MemberRoles")
   joinedAt DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  invite Invite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
 
   @@unique([userId, serverId])
   @@map("server_members")
@@ -97,6 +126,7 @@ model Channel {
 
   server   Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
   messages Message[]
+  webhooks Webhook[]
 
   @@map("channels")
 }
@@ -204,6 +234,122 @@ model Notification {
   @@map("notifications")
 }
 
+model Invite {
+  id        String   @id @default(cuid())
+  code      String   @unique // e.g., "h7x2kz9"
+  serverId  String
+  creatorId String
+  maxUses   Int?     // null = unlimited
+  uses      Int      @default(0)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  
+  server  Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  usedBy  ServerMember[]
+
+  @@map("invites")
+}
+
+model ModerationAction {
+  id          String         @id @default(cuid())
+  type        ModerationType // TIMEOUT, KICK, BAN, WARN, UNBAN
+  targetId    String
+  moderatorId String
+  serverId    String
+  reason      String
+  duration    Int?           // seconds, null = permanent
+  expiresAt   DateTime?
+  createdAt   DateTime       @default(now())
+
+  target    User   @relation("ModTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  moderator User   @relation("Moderator", fields: [moderatorId], references: [id], onDelete: Cascade)
+  server    Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@map("moderation_actions")
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  serverId   String
+  actorId    String
+  action     AuditAction
+  targetType String      // USER, CHANNEL, MESSAGE, ROLE, SERVER
+  targetId   String
+  changes    Json?       // Before/after state or metadata
+  reason     String?
+  createdAt  DateTime    @default(now())
+
+  server     Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  actor      User        @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  serverId    String
+  name        String
+  color       String   @default("#99AAB5")
+  position    Int
+  permissions Int      @default(0) // Bitfield
+  hoisted     Boolean  @default(false)
+  mentionable Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  server      Server         @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  members     ServerMember[] @relation("MemberRoles")
+
+  @@map("roles")
+}
+
+model Webhook {
+  id        String   @id @default(cuid())
+  channelId String
+  name      String
+  token     String   @unique
+  avatar    String?
+  creatorId String
+  createdAt DateTime @default(now())
+  
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+}
+
+model Bot {
+  id          String   @id @default(cuid())
+  name        String
+  ownerId     String
+  token       String   @unique
+  publicKey   String
+  avatar      String?
+  description String?
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  installations BotInstallation[]
+
+  @@map("bots")
+}
+
+model BotInstallation {
+  id          String   @id @default(cuid())
+  botId       String
+  serverId    String
+  permissions Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  bot    Bot    @relation(fields: [botId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  
+  @@unique([botId, serverId])
+  @@map("bot_installations")
+}
+
 // Enums
 enum UserStatus {
   ONLINE
@@ -265,4 +411,33 @@ enum NotificationType {
   FRIEND_REQUEST
   MENTION
   SYSTEM
+}
+
+enum ModerationType {
+  TIMEOUT
+  KICK
+  BAN
+  WARN
+  UNBAN
+  UNTIMEOUT
+}
+
+enum AuditAction {
+  MESSAGE_DELETE
+  CHANNEL_CREATE
+  CHANNEL_UPDATE
+  CHANNEL_DELETE
+  MEMBER_KICK
+  MEMBER_BAN
+  MEMBER_UNBAN
+  MEMBER_TIMEOUT
+  MEMBER_ROLE_UPDATE
+  SERVER_UPDATE
+  INVITE_CREATE
+  INVITE_DELETE
+}
+
+enum VoiceMode {
+  VOICE_ACTIVITY
+  PUSH_TO_TALK
 }
