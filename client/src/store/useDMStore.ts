@@ -24,9 +24,10 @@ interface DMStore {
     fetchDMs: () => Promise<void>;
     updateFriendRequest: (friendId: string, action: 'accept' | 'decline') => Promise<void>;
     addFriend: (username: string) => Promise<void>;
+    getOrCreateDM: (userId: string) => Promise<string | null>;
 }
 
-export const useDMStore = create<DMStore>((set) => ({
+export const useDMStore = create<DMStore>((set, get) => ({
     friends: [],
     dmChannels: [],
     loading: false,
@@ -105,6 +106,23 @@ export const useDMStore = create<DMStore>((set) => ({
         try {
             set({ loading: true });
             await api.post('/friends', { username });
+        } finally {
+            set({ loading: false });
+        }
+    },
+
+    getOrCreateDM: async (userId: string) => {
+        try {
+            set({ loading: true });
+            const { data } = await api.post<{ dm: any }>('/friends/dms', { userId });
+
+            // Refetch DMs to include the new one
+            await get().fetchDMs();
+
+            return data.dm.id;
+        } catch (err) {
+            console.error('Failed to get/create DM:', err);
+            return null;
         } finally {
             set({ loading: false });
         }

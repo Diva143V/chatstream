@@ -75,14 +75,15 @@ function ChannelGroup({
 export function Sidebar() {
   const { selectedServer, selectedChannelId, selectChannel } = useServerStore();
   const { dmMode, selectedDMId, setDMMode } = useUIStore();
-  const { friends, fetchFriends } = useDMStore();
+  const { friends, dmChannels, fetchFriends, fetchDMs } = useDMStore();
   const { user } = useAuthStore();
 
   useEffect(() => {
-    if (dmMode && friends.length === 0 && user?.id) {
-      fetchFriends(user.id);
+    if (dmMode && user?.id) {
+      if (friends.length === 0) fetchFriends(user.id);
+      if (dmChannels.length === 0) fetchDMs();
     }
-  }, [dmMode, friends.length, fetchFriends, user?.id]);
+  }, [dmMode, friends.length, dmChannels.length, fetchFriends, fetchDMs, user?.id]);
 
   if (dmMode) {
     return (
@@ -114,27 +115,27 @@ export function Sidebar() {
           </div>
 
           <div className="space-y-0.5">
-            {friends.map((friend) => (
+            {dmChannels.map((dm) => (
               <button
-                key={friend.id}
-                onClick={() => setDMMode(true, friend.id)}
+                key={dm.id}
+                onClick={() => setDMMode(true, dm.id)}
                 className={cn(
                   "w-full flex items-center gap-3 px-2 py-1.5 rounded-md transition-all group",
-                  selectedDMId === friend.id ? "bg-brand/20 text-white" : "text-white/40 hover:bg-white/5 hover:text-white/80"
+                  selectedDMId === dm.id ? "bg-brand/20 text-white" : "text-white/40 hover:bg-white/5 hover:text-white/80"
                 )}
               >
                 <div className="relative flex-shrink-0">
-                  {friend.avatar ? (
-                    <img src={friend.avatar} className="w-8 h-8 rounded-full" />
+                  {dm.recipient.avatar ? (
+                    <img src={dm.recipient.avatar} className="w-8 h-8 rounded-full" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-xs font-bold text-white">
-                      {friend.username[0].toUpperCase()}
+                      {dm.recipient.username[0].toUpperCase()}
                     </div>
                   )}
-                  <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-raised", getStatusColor(friend.status))} />
+                  <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-raised", getStatusColor(dm.recipient.status))} />
                 </div>
                 <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-medium truncate">{friend.username}</p>
+                  <p className="text-sm font-medium truncate">{dm.recipient.username}</p>
                 </div>
               </button>
             ))}

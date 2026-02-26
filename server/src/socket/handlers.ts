@@ -99,6 +99,7 @@ export function registerSocketHandlers(io: Server) {
             id: true,
             content: true,
             edited: true,
+            channelId: true,
             createdAt: true,
             author: { select: { id: true, username: true, avatar: true, status: true } },
             attachments: true,
@@ -130,12 +131,17 @@ export function registerSocketHandlers(io: Server) {
             content: true,
             edited: true,
             channelId: true,
+            dmId: true,
             createdAt: true,
             author: { select: { id: true, username: true, avatar: true } },
           },
         });
 
-        io.to(`channel:${updated.channelId}`).emit('message:updated', updated);
+        if (updated.dmId) {
+          io.to(`dm:${updated.dmId}`).emit('message:updated', { ...updated, channelId: updated.dmId });
+        } else {
+          io.to(`channel:${updated.channelId}`).emit('message:updated', updated);
+        }
       } catch (error) {
         console.error('[Socket] message:edit error:', error);
         socket.emit('error', { message: 'Failed to edit message' });
@@ -151,7 +157,12 @@ export function registerSocketHandlers(io: Server) {
         }
 
         await prisma.message.delete({ where: { id: data.messageId } });
-        io.to(`channel:${data.channelId}`).emit('message:deleted', { id: data.messageId, channelId: data.channelId });
+
+        if (message.dmId) {
+          io.to(`dm:${message.dmId}`).emit('message:deleted', { id: data.messageId, channelId: message.dmId });
+        } else {
+          io.to(`channel:${data.channelId}`).emit('message:deleted', { id: data.messageId, channelId: data.channelId });
+        }
       } catch (error) {
         console.error('[Socket] message:delete error:', error);
         socket.emit('error', { message: 'Failed to delete message' });
@@ -181,10 +192,19 @@ export function registerSocketHandlers(io: Server) {
           include: { user: { select: { id: true, username: true } } },
         });
 
-        io.to(`channel:${message.channelId}`).emit('message:reactions_updated', {
-          messageId: data.messageId,
-          reactions,
-        });
+        if (message.dmId) {
+          io.to(`dm:${message.dmId}`).emit('message:reactions_updated', {
+            messageId: data.messageId,
+            reactions,
+            channelId: message.dmId
+          });
+        } else {
+          io.to(`channel:${message.channelId}`).emit('message:reactions_updated', {
+            messageId: data.messageId,
+            reactions,
+            channelId: message.channelId
+          });
+        }
       } catch (error) {
         console.error('[Socket] message:react error:', error);
       }
@@ -242,6 +262,7 @@ export function registerSocketHandlers(io: Server) {
         await prisma.directMessage.update({ where: { id: data.dmId }, data: { updatedAt: new Date() } });
 
         // Broadcast to DM room
+        // We set channelId to the dmId for the client store
         io.to(`dm:${data.dmId}`).emit('message:new', { ...message, channelId: data.dmId });
       } catch (error) {
         console.error('[Socket] dm:send error:', error);
