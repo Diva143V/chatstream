@@ -13,6 +13,7 @@ import { SettingsModal } from '@/components/modals/SettingsModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
 import { CreateServerModal } from '@/components/modals/CreateServerModal';
 import { JoinServerModal } from '@/components/modals/JoinServerModal';
+import { AddFriendModal } from '@/components/modals/AddFriendModal';
 import { FriendsList } from '@/components/FriendsList';
 
 export default function App() {
@@ -75,6 +76,7 @@ export default function App() {
       <ProfileModal />
       <CreateServerModal />
       <JoinServerModal />
+      <AddFriendModal />
     </div>
   );
 }

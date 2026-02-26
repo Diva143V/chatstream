@@ -1,20 +1,34 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Users, Search, MessageSquare, X } from 'lucide-react';
 import { useDMStore } from '@/store/useDMStore';
 import { useUIStore } from '@/store/useUIStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { cn, getStatusColor } from '@/lib/utils';
 
 export function FriendsList() {
-    const { friends, loading } = useDMStore();
-    const { setDMMode, openProfile } = useUIStore();
+    const { friends, fetchFriends, loading } = useDMStore();
+    const { setDMMode, openProfile, toggleAddFriend } = useUIStore();
+    const { user } = useAuthStore();
     const [filter, setFilter] = useState<'ALL' | 'ONLINE' | 'PENDING' | 'BLOCKED'>('ONLINE');
     const [query, setQuery] = useState('');
+
+    useEffect(() => {
+        if (user?.id) {
+            fetchFriends(user.id);
+        }
+    }, [user?.id, fetchFriends]);
 
     const filteredFriends = useMemo(() => {
         return friends.filter(friend => {
             const matchesQuery = friend.username.toLowerCase().includes(query.toLowerCase());
-            if (filter === 'ONLINE') return matchesQuery && friend.status !== 'OFFLINE';
-            return matchesQuery;
+            if (!matchesQuery) return false;
+
+            if (filter === 'ONLINE') return friend.relationStatus === 'ACCEPTED' && friend.status !== 'OFFLINE';
+            if (filter === 'ALL') return friend.relationStatus === 'ACCEPTED';
+            if (filter === 'PENDING') return friend.relationStatus === 'PENDING';
+            if (filter === 'BLOCKED') return friend.relationStatus === 'BLOCKED';
+
+            return false;
         });
     }, [friends, filter, query]);
 
@@ -41,7 +55,10 @@ export function FriendsList() {
                                 {f.charAt(0) + f.slice(1).toLowerCase()}
                             </button>
                         ))}
-                        <button className="ml-2 px-3 py-1 bg-status-online/20 text-status-online hover:bg-status-online/30 rounded-md text-sm font-bold transition-all">
+                        <button
+                            onClick={() => toggleAddFriend(true)}
+                            className="ml-2 px-3 py-1 bg-status-online/20 text-status-online hover:bg-status-online/30 rounded-md text-sm font-bold transition-all"
+                        >
                             Add Friend
                         </button>
                     </nav>
@@ -88,25 +105,60 @@ export function FriendsList() {
                                         </div>
                                         <div>
                                             <h4 className="text-sm font-bold text-white group-hover:text-brand-light transition-colors">{friend.username}</h4>
-                                            <p className="text-xs text-white/40">{friend.statusText ?? friend.status.toLowerCase()}</p>
+                                            <p className="text-xs text-white/40">
+                                                {friend.relationStatus === 'PENDING' ? (
+                                                    friend.isRequester ? 'Outgoing Friend Request' : 'Incoming Friend Request'
+                                                ) : (
+                                                    friend.statusText ?? friend.status.toLowerCase()
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => setDMMode(true, friend.id)}
-                                            className="p-2 bg-surface-overlay text-white/60 hover:text-white hover:bg-brand rounded-full transition-all"
-                                            title="Message"
-                                        >
-                                            <MessageSquare className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => openProfile(friend.id)}
-                                            className="p-2 bg-surface-overlay text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all"
-                                            title="More"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
+                                        {friend.relationStatus === 'ACCEPTED' ? (
+                                            <>
+                                                <button
+                                                    onClick={() => setDMMode(true, friend.id)}
+                                                    className="p-2 bg-surface-overlay text-white/60 hover:text-white hover:bg-brand rounded-full transition-all"
+                                                    title="Message"
+                                                >
+                                                    <MessageSquare className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => openProfile(friend.id)}
+                                                    className="p-2 bg-surface-overlay text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all"
+                                                    title="More"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </>
+                                        ) : friend.relationStatus === 'PENDING' ? (
+                                            <>
+                                                {!friend.isRequester && (
+                                                    <button
+                                                        onClick={() => {
+                                                            useDMStore.getState().updateFriendRequest(friend.friendId, 'accept')
+                                                                .then(() => fetchFriends(user!.id));
+                                                        }}
+                                                        className="p-2 bg-status-online/20 text-status-online hover:bg-status-online hover:text-white rounded-full transition-all"
+                                                        title="Accept"
+                                                    >
+                                                        <Users className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => {
+                                                        useDMStore.getState().updateFriendRequest(friend.friendId, 'decline')
+                                                            .then(() => fetchFriends(user!.id));
+                                                    }}
+                                                    className="p-2 bg-status-danger/20 text-status-danger hover:bg-status-danger hover:text-white rounded-full transition-all"
+                                                    title={friend.isRequester ? "Cancel Request" : "Decline"}
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
@@ -114,7 +166,11 @@ export function FriendsList() {
                             {filteredFriends.length === 0 && !loading && (
                                 <div className="flex flex-col items-center justify-center py-20 text-center opacity-20">
                                     <Users className="w-20 h-20 mb-4" />
-                                    <p>No one's here yet...</p>
+                                    <p>
+                                        {filter === 'PENDING' ? "No pending friend requests." :
+                                            filter === 'BLOCKED' ? "You haven't blocked anyone." :
+                                                "No one's here yet..."}
+                                    </p>
                                 </div>
                             )}
                         </div>
