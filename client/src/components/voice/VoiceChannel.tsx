@@ -5,6 +5,8 @@ import {
     ParticipantTile,
     ControlBar,
     RoomAudioRenderer,
+    GridLayout,
+    TrackLoop,
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import '@livekit/components-styles';
@@ -73,13 +75,14 @@ export function VoiceChannel({ channelId, channelName, onDisconnect }: VoiceChan
                 className="flex-1 flex flex-col"
             >
                 {/* Visual grid for voice participants */}
-                <div className="flex-1 p-4 overflow-y-auto">
+                <div className="flex-1 p-4 overflow-hidden flex flex-col">
                     <div className="mb-4">
                         <h2 className="text-xl font-bold text-white">Voice: {channelName}</h2>
                         <p className="text-sm text-white/40">Connected to LiveKit Room</p>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        <ParticipantList />
+
+                    <div className="flex-1 min-h-0">
+                        <ParticipantGrid />
                     </div>
                 </div>
 
@@ -96,31 +99,20 @@ export function VoiceChannel({ channelId, channelName, onDisconnect }: VoiceChan
     );
 }
 
-function ParticipantList() {
+function ParticipantGrid() {
     const tracks = useTracks(
         [
             { source: Track.Source.Camera, withPlaceholder: true },
-            { source: Track.Source.Microphone, withPlaceholder: false },
+            { source: Track.Source.ScreenShare, withPlaceholder: false },
         ],
         { onlySubscribed: false },
     );
 
-    // Filter unique participants from tracks
-    const participants = Array.from(new Set(tracks.map(t => t.participant.sid)));
-
-    if (participants.length === 0) {
-        return (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 text-white/20">
-                <p>Waiting for others to join...</p>
-            </div>
-        );
-    }
-
     return (
-        <>
-            {tracks.map((trackReference) => (
-                <ParticipantTile key={`${trackReference.participant.sid}-${trackReference.source}`} {...trackReference} />
-            ))}
-        </>
+        <GridLayout tracks={tracks} style={{ height: 'calc(100% - 20px)' }}>
+            <TrackLoop tracks={tracks}>
+                <ParticipantTile />
+            </TrackLoop>
+        </GridLayout>
     );
 }
