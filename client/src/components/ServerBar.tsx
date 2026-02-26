@@ -21,7 +21,7 @@ function Tooltip({ children, label }: { children: React.ReactNode; label: string
 export function ServerBar() {
   const { user } = useAuthStore();
   const { servers, selectedServerId, selectServer } = useServerStore();
-  const { dmMode, setDMMode } = useUIStore();
+  const { dmMode, setDMMode, toggleCreateServer, toggleJoinServer, openProfile } = useUIStore();
 
   return (
     <aside className="w-[72px] h-full bg-surface-base flex flex-col items-center py-3 gap-2 border-r border-white/5 overflow-y-auto scrollbar-hide flex-shrink-0">
@@ -78,13 +78,19 @@ export function ServerBar() {
 
       {/* Add server */}
       <Tooltip label="Add a Server">
-        <button className="w-12 h-12 rounded-2xl bg-surface-raised text-status-online hover:bg-status-online hover:text-white hover:rounded-xl flex items-center justify-center transition-all duration-200">
+        <button
+          onClick={() => toggleCreateServer()}
+          className="w-12 h-12 rounded-2xl bg-surface-raised text-status-online hover:bg-status-online hover:text-white hover:rounded-xl flex items-center justify-center transition-all duration-200"
+        >
           <Plus className="w-5 h-5" />
         </button>
       </Tooltip>
 
-      <Tooltip label="Explore Servers">
-        <button className="w-12 h-12 rounded-2xl bg-surface-raised text-brand-light hover:bg-brand hover:text-white hover:rounded-xl flex items-center justify-center transition-all duration-200">
+      <Tooltip label="Join a Server">
+        <button
+          onClick={() => toggleJoinServer()}
+          className="w-12 h-12 rounded-2xl bg-surface-raised text-brand-light hover:bg-brand hover:text-white hover:rounded-xl flex items-center justify-center transition-all duration-200"
+        >
           <Compass className="w-5 h-5" />
         </button>
       </Tooltip>
@@ -94,7 +100,10 @@ export function ServerBar() {
         <>
           <div className="w-8 h-px bg-white/10 my-1" />
           <Tooltip label={user.username}>
-            <button className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-white/10 hover:ring-brand transition-all duration-200">
+            <button
+              onClick={() => openProfile(user.id)}
+              className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-white/10 hover:ring-brand transition-all duration-200"
+            >
               {user.avatar ? (
                 <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
               ) : (

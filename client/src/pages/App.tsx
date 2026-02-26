@@ -9,11 +9,16 @@ import { ServerBar } from '@/components/ServerBar';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatArea } from '@/components/ChatArea';
 import { MembersPanel } from '@/components/MembersPanel';
+import { SettingsModal } from '@/components/modals/SettingsModal';
+import { ProfileModal } from '@/components/modals/ProfileModal';
+import { CreateServerModal } from '@/components/modals/CreateServerModal';
+import { JoinServerModal } from '@/components/modals/JoinServerModal';
+import { FriendsList } from '@/components/FriendsList';
 
 export default function App() {
   const { isAuthenticated, refreshUser } = useAuthStore();
   const { fetchServers } = useServerStore();
-  const { dmMode } = useUIStore();
+  const { dmMode, selectedDMId } = useUIStore(); // Added selectedDMId
 
   // Initialize socket connection
   useSocket();
@@ -41,10 +46,11 @@ export default function App() {
       {/* Main content area */}
       <main className="flex-1 flex overflow-hidden">
         {dmMode ? (
-          // DM / Friends view placeholder
-          <div className="flex-1 flex items-center justify-center text-white/30">
-            <p>Select a friend to start chatting</p>
-          </div>
+          selectedDMId ? (
+            <ChatArea />
+          ) : (
+            <FriendsList />
+          )
         ) : (
           <>
             <ChatArea />
@@ -63,6 +69,12 @@ export default function App() {
           },
         }}
       />
+
+      {/* Modals */}
+      <SettingsModal />
+      <ProfileModal />
+      <CreateServerModal />
+      <JoinServerModal />
     </div>
   );
 }

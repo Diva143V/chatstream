@@ -17,6 +17,8 @@ interface ServerStore {
   selectServer: (serverId: string | null) => void;
   selectChannel: (channelId: string | null) => void;
   addServer: (server: Server) => void;
+  createServer: (name: string, description?: string) => Promise<Server>;
+  joinServer: (inviteCode: string) => Promise<Server>;
   updateServer: (serverId: string, updates: Partial<Server>) => void;
   reset: () => void;
 }
@@ -72,6 +74,18 @@ export const useServerStore = create<ServerStore>((set, get) => ({
   selectChannel: (channelId) => set({ selectedChannelId: channelId }),
 
   addServer: (server) => set((state) => ({ servers: [...state.servers, server] })),
+
+  createServer: async (name, description) => {
+    const { data } = await api.post<{ server: Server }>('/servers', { name, description });
+    set((state) => ({ servers: [...state.servers, data.server] }));
+    return data.server;
+  },
+
+  joinServer: async (inviteCode) => {
+    const { data } = await api.post<{ server: Server }>(`/servers/join/${inviteCode}`);
+    set((state) => ({ servers: [...state.servers, data.server] }));
+    return data.server;
+  },
 
   updateServer: (serverId, updates) =>
     set((state) => ({

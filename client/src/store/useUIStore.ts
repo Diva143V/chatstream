@@ -9,6 +9,8 @@ interface UIStore {
   showSettings: boolean;
   settingsTab: 'account' | 'privacy' | 'notifications' | 'appearance';
   profileUserId: string | null;
+  showCreateServer: boolean;
+  showJoinServer: boolean;
 
   // DMs
   selectedDMId: string | null;
@@ -24,6 +26,8 @@ interface UIStore {
   closeSettings: () => void;
   openProfile: (userId: string) => void;
   closeProfile: () => void;
+  toggleCreateServer: (show?: boolean) => void;
+  toggleJoinServer: (show?: boolean) => void;
   setDMMode: (on: boolean, dmId?: string | null) => void;
   setTyping: (channelId: string, username: string, isTyping: boolean) => void;
 }
@@ -34,6 +38,8 @@ export const useUIStore = create<UIStore>((set) => ({
   showSettings: false,
   settingsTab: 'account',
   profileUserId: null,
+  showCreateServer: false,
+  showJoinServer: false,
   selectedDMId: null,
   dmMode: false,
   typingUsers: {},
@@ -46,6 +52,9 @@ export const useUIStore = create<UIStore>((set) => ({
 
   openProfile: (userId) => set({ profileUserId: userId }),
   closeProfile: () => set({ profileUserId: null }),
+
+  toggleCreateServer: (show) => set((s) => ({ showCreateServer: show ?? !s.showCreateServer })),
+  toggleJoinServer: (show) => set((s) => ({ showJoinServer: show ?? !s.showJoinServer })),
 
   setDMMode: (on, dmId = null) => set({ dmMode: on, selectedDMId: dmId }),
 

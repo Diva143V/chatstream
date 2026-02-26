@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { Hash, Volume2, Megaphone, ChevronDown, ChevronRight } from 'lucide-react';
 import { useServerStore } from '@/store/useServerStore';
-import { cn } from '@/lib/utils';
+import { useUIStore } from '@/store/useUIStore';
+import { useDMStore } from '@/store/useDMStore';
+import { cn, getStatusColor } from '@/lib/utils';
 import type { Channel, ChannelType } from '@/types';
 import { UserPanel } from './UserPanel';
+import { Users, Search, Plus, MessageSquare } from 'lucide-react';
+import { useEffect } from 'react';
 
 function ChannelIcon({ type }: { type: ChannelType }) {
   switch (type) {
@@ -69,12 +73,84 @@ function ChannelGroup({
 
 export function Sidebar() {
   const { selectedServer, selectedChannelId, selectChannel } = useServerStore();
+  const { dmMode, selectedDMId, setDMMode } = useUIStore();
+  const { friends, fetchFriends } = useDMStore();
+
+  useEffect(() => {
+    if (dmMode && friends.length === 0) {
+      fetchFriends();
+    }
+  }, [dmMode, friends.length, fetchFriends]);
+
+  if (dmMode) {
+    return (
+      <aside className="w-60 bg-surface-raised flex flex-col border-r border-white/5 flex-shrink-0">
+        <div className="h-14 px-4 flex items-center border-b border-white/5">
+          <button className="w-full flex items-center gap-2 px-3 py-2 bg-surface-base border border-white/5 rounded-lg text-sm text-white/40 hover:text-white/60 transition-colors">
+            <Search className="w-4 h-4" />
+            Find or start a conversation
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-2 space-y-0.5 scrollbar-hide">
+          <button
+            onClick={() => setDMMode(true, null)}
+            className={cn(
+              "w-full flex items-center gap-3 px-2 py-2 rounded-md transition-all group",
+              !selectedDMId ? "bg-brand/20 text-white" : "text-white/40 hover:bg-white/5 hover:text-white/80"
+            )}
+          >
+            <Users className="w-5 h-5" />
+            <span className="font-medium">Friends</span>
+          </button>
+
+          <div className="mt-4 px-2 mb-2 flex items-center justify-between group">
+            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Direct Messages</span>
+            <button className="text-white/40 hover:text-white transition-colors opacity-0 group-hover:opacity-100">
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-0.5">
+            {friends.map((friend) => (
+              <button
+                key={friend.id}
+                onClick={() => setDMMode(true, friend.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-2 py-1.5 rounded-md transition-all group",
+                  selectedDMId === friend.id ? "bg-brand/20 text-white" : "text-white/40 hover:bg-white/5 hover:text-white/80"
+                )}
+              >
+                <div className="relative flex-shrink-0">
+                  {friend.avatar ? (
+                    <img src={friend.avatar} className="w-8 h-8 rounded-full" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-xs font-bold text-white">
+                      {friend.username[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-raised", getStatusColor(friend.status))} />
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-medium truncate">{friend.username}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <UserPanel />
+      </aside>
+    );
+  }
 
   if (!selectedServer) {
     return (
-      <aside className="w-60 bg-surface-raised flex flex-col border-r border-white/5">
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-white/30 text-sm text-center px-4">Select a server to view channels</p>
+      <aside className="w-60 bg-surface-raised flex flex-col border-r border-white/5 flex-shrink-0">
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
+          <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-4">
+            <MessageSquare className="w-6 h-6 text-white/20" />
+          </div>
+          <p className="text-white/30 text-sm">Select a server to view channels</p>
         </div>
         <UserPanel />
       </aside>

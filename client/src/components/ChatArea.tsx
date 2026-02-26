@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState, memo } from 'react';
 import {
-  Hash, Bell, Pin, Users, Search, Volume2, Megaphone,
+  Hash, Bell, Pin, Users, Search, Volume2, Megaphone, MessageSquare,
   Reply, Copy, Edit, Trash2
 } from 'lucide-react';
 import { useServerStore } from '@/store/useServerStore';
@@ -268,8 +268,8 @@ function TypingIndicator({ names }: { names: string[] }) {
     names.length === 1
       ? `${names[0]} is typing...`
       : names.length === 2
-      ? `${names[0]} and ${names[1]} are typing...`
-      : `${names.length} people are typing...`;
+        ? `${names[0]} and ${names[1]} are typing...`
+        : `${names.length} people are typing...`;
 
   return (
     <div className="px-4 pb-1 flex items-center gap-2 h-6">
@@ -322,8 +322,17 @@ export function ChatArea() {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface-base">
         <div className="text-center">
-          <Hash className="w-16 h-16 text-white/10 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-white/30">Select a channel to start chatting</h3>
+          {useUIStore.getState().dmMode ? (
+            <>
+              <MessageSquare className="w-16 h-16 text-white/10 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white/30">Direct Messaging coming soon</h3>
+            </>
+          ) : (
+            <>
+              <Hash className="w-16 h-16 text-white/10 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white/30">Select a channel to start chatting</h3>
+            </>
+          )}
         </div>
       </div>
     );
@@ -364,7 +373,7 @@ export function ChatArea() {
           const showDate =
             !prevGroup ||
             formatDateDivider(group.messages[0].createdAt) !==
-              formatDateDivider(prevGroup.messages[0].createdAt);
+            formatDateDivider(prevGroup.messages[0].createdAt);
 
           return (
             <div key={`${group.author.id}-${group.messages[0].id}`}>
