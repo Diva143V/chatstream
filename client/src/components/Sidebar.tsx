@@ -7,6 +7,7 @@ import { cn, getStatusColor } from '@/lib/utils';
 import type { Channel, ChannelType } from '@/types';
 import { UserPanel } from './UserPanel';
 import { Users, Search, Plus, MessageSquare } from 'lucide-react';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useEffect } from 'react';
 
 function ChannelIcon({ type }: { type: ChannelType }) {
@@ -75,12 +76,13 @@ export function Sidebar() {
   const { selectedServer, selectedChannelId, selectChannel } = useServerStore();
   const { dmMode, selectedDMId, setDMMode } = useUIStore();
   const { friends, fetchFriends } = useDMStore();
+  const { user } = useAuthStore();
 
   useEffect(() => {
-    if (dmMode && friends.length === 0) {
-      fetchFriends();
+    if (dmMode && friends.length === 0 && user?.id) {
+      fetchFriends(user.id);
     }
-  }, [dmMode, friends.length, fetchFriends]);
+  }, [dmMode, friends.length, fetchFriends, user?.id]);
 
   if (dmMode) {
     return (
