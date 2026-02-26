@@ -274,6 +274,17 @@ export function registerSocketHandlers(io: Server) {
       socket.leave(`dm:${dmId}`);
     });
 
+    socket.on('dm:call_initiate', (dmId: string) => {
+      console.log(`[Socket] Call initiated in DM: ${dmId} by ${userId}`);
+      // Notify others in the room about the incoming call
+      socket.to(`dm:${dmId}`).emit('dm:incoming_call', { dmId, callerId: userId });
+    });
+
+    socket.on('dm:call_end', (dmId: string) => {
+      console.log(`[Socket] Call ended in DM: ${dmId}`);
+      io.to(`dm:${dmId}`).emit('dm:call_ended', { dmId });
+    });
+
     // ─── Disconnect ───────────────────────────────────────────────────────────
 
     socket.on('disconnect', async () => {

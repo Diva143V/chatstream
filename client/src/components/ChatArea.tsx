@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState, memo } from 'react';
 import {
   Hash, Bell, Pin, Users, Search, Volume2, Megaphone, MessageSquare,
-  Reply, Copy, Edit, Trash2
+  Reply, Copy, Edit, Trash2, Phone, Video
 } from 'lucide-react';
 import { useServerStore } from '@/store/useServerStore';
 import { useUIStore } from '@/store/useUIStore';
@@ -195,7 +195,11 @@ const MessageGroupItem = memo(function MessageGroupItem({
 
 // ─── Channel Header ───────────────────────────────────────────────────────────
 
-function ChannelHeader() {
+interface ChannelHeaderProps {
+  onInitiateCall?: () => void;
+}
+
+function ChannelHeader({ onInitiateCall }: ChannelHeaderProps) {
   const { selectedServer, selectedChannel } = useServerStore();
   const { dmMode, selectedDMId, membersPanelOpen, toggleMembersPanel } = useUIStore();
   const { dmChannels } = useDMStore();
@@ -220,6 +224,21 @@ function ChannelHeader() {
             )} />
           </div>
           <span className="font-semibold text-white">{dm.recipient.username}</span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onInitiateCall?.()}
+            className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+          >
+            <Phone className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => onInitiateCall?.()}
+            className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+          >
+            <Video className="w-5 h-5" />
+          </button>
         </div>
       </div>
     );
@@ -314,9 +333,9 @@ function TypingIndicator({ names }: { names: string[] }) {
 
 export function ChatArea() {
   const { selectedChannel, selectedChannelId } = useServerStore();
-  const { dmMode, selectedDMId, typingUsers } = useUIStore();
+  const { dmMode, selectedDMId, activeCallId, setCall, typingUsers } = useUIStore();
   const { user } = useAuthStore();
-  const { joinChannel, leaveChannel, joinDM } = useSocket();
+  const { joinChannel, leaveChannel, joinDM, initiateDMCall, endDMCall } = useSocket();
 
   const channelMessages = useChannelMessages(selectedChannelId);
   const dmMessages = useDMMessages(selectedDMId);
@@ -394,6 +413,23 @@ export function ChatArea() {
         <VoiceChannel
           channelId={selectedChannel.id}
           channelName={selectedChannel.name}
+          onDisconnect={() => {/* handle channel leave if needed */ }}
+        />
+      </div>
+    );
+  }
+
+  if (dmMode && selectedDMId === activeCallId && activeCallId !== null) {
+    return (
+      <div className="flex-1 flex flex-col bg-surface-base overflow-hidden">
+        <ChannelHeader />
+        <VoiceChannel
+          channelId={activeCallId}
+          channelName="Direct Call"
+          onDisconnect={() => {
+            endDMCall(activeCallId);
+            setCall(null);
+          }}
         />
       </div>
     );
@@ -401,7 +437,12 @@ export function ChatArea() {
 
   return (
     <div className="flex-1 flex flex-col bg-surface-base overflow-hidden">
-      <ChannelHeader />
+      <ChannelHeader onInitiateCall={() => {
+        if (selectedDMId) {
+          initiateDMCall(selectedDMId);
+          setCall(selectedDMId);
+        }
+      }} />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto scrollbar-hide" onScroll={handleScroll}>

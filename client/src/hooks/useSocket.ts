@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useMessageStore } from '@/store/useMessageStore';
 import { useServerStore } from '@/store/useServerStore';
@@ -98,6 +99,30 @@ export function useSocket() {
       setTyping(channelId, userId, false);
     });
 
+    socket.on('dm:incoming_call', ({ dmId, callerId }: { dmId: string; callerId: string }) => {
+      console.log(`[Socket] Incoming call in DM ${dmId} from ${callerId}`);
+      toast("Incoming Call", {
+        description: "Someone is calling you!",
+        action: {
+          label: "Join",
+          onClick: () => {
+            const { setDMMode, setCall } = useUIStore.getState();
+            setDMMode(true, dmId);
+            setCall(dmId);
+          }
+        },
+        duration: 10000,
+      });
+    });
+
+    socket.on('dm:call_ended', ({ dmId }: { dmId: string }) => {
+      console.log(`[Socket] Call ended in DM ${dmId}`);
+      const { activeCallId, setCall } = useUIStore.getState();
+      if (activeCallId === dmId) {
+        setCall(null);
+      }
+    });
+
     socket.on('connect_error', (err) => {
       console.error('[Socket] Connection error:', err.message);
     });
@@ -176,6 +201,14 @@ export function useSocket() {
     }
   }, []);
 
+  const initiateDMCall = useCallback((dmId: string) => {
+    getSocket()?.emit('dm:call_initiate', dmId);
+  }, []);
+
+  const endDMCall = useCallback((dmId: string) => {
+    getSocket()?.emit('dm:call_end', dmId);
+  }, []);
+
   return {
     socket: socketRef.current,
     joinChannel,
@@ -188,5 +221,7 @@ export function useSocket() {
     stopTyping,
     joinDM,
     sendDM,
+    initiateDMCall,
+    endDMCall,
   };
 }

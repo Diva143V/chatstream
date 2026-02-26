@@ -16,6 +16,7 @@ interface UIStore {
   // DMs
   selectedDMId: string | null;
   dmMode: boolean; // true when viewing DMs/friends
+  activeCallId: string | null;
 
   // Typing indicators: channelId -> username[]
   typingUsers: Record<string, string[]>;
@@ -31,6 +32,7 @@ interface UIStore {
   toggleJoinServer: (show?: boolean) => void;
   toggleAddFriend: (show?: boolean) => void;
   setDMMode: (on: boolean, dmId?: string | null) => void;
+  setCall: (id: string | null) => void;
   setTyping: (channelId: string, username: string, isTyping: boolean) => void;
 }
 
@@ -45,6 +47,7 @@ export const useUIStore = create<UIStore>((set) => ({
   showAddFriend: false,
   selectedDMId: null,
   dmMode: false,
+  activeCallId: null,
   typingUsers: {},
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -61,6 +64,7 @@ export const useUIStore = create<UIStore>((set) => ({
   toggleAddFriend: (show) => set((s) => ({ showAddFriend: show ?? !s.showAddFriend })),
 
   setDMMode: (on, dmId = null) => set({ dmMode: on, selectedDMId: dmId }),
+  setCall: (id) => set({ activeCallId: id }),
 
   setTyping: (channelId, username, isTyping) =>
     set((state) => {
