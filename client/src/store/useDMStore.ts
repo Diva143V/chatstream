@@ -68,10 +68,17 @@ export const useDMStore = create<DMStore>((set) => ({
             set({ loading: true });
             const { data } = await api.get<{ dms: any[] }>('/friends/dms');
 
+            // Get current user to exclude from recipient mapping
+            const currentUserId = (await api.get('/auth/me')).data.user.id;
+
             const transformedDMs = data.dms.map(dm => {
-                // Find the other participant
-                // This logic might depend on the backend response structure
-                return dm;
+                const other = dm.participants.find((p: any) => p.user.id !== currentUserId)?.user;
+                return {
+                    id: dm.id,
+                    recipient: other,
+                    lastMessage: dm.messages[0]?.content,
+                    updatedAt: dm.updatedAt
+                };
             });
 
             set({ dmChannels: transformedDMs });

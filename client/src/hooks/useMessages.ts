@@ -42,14 +42,47 @@ export function useChannelMessages(channelId: string | null) {
 
     // Only fetch if we don't have messages yet
     if (!messagesByChannel[channelId]) {
-      fetchMessages(channelId);
+      fetchMessages(channelId, false);
     }
   }, [channelId, messagesByChannel, fetchMessages]);
 
   // Load older messages
   const loadMore = () => {
     if (channelId && hasMore && !isLoading && nextCursor) {
-      fetchMessages(channelId, nextCursor);
+      fetchMessages(channelId, false, nextCursor);
+    }
+  };
+
+  // Memoize grouped messages
+  const groupedMessages = useMemo(() => groupMessages(messages), [messages]);
+
+  return { messages, groupedMessages, isLoading, hasMore, loadMore };
+}
+
+export function useDMMessages(dmId: string | null) {
+  const { messagesByChannel, cursorByChannel, loadingByChannel, fetchMessages } = useMessageStore();
+
+  const messages = dmId ? (messagesByChannel[dmId] ?? []) : [];
+  const nextCursor = dmId ? cursorByChannel[dmId] : null;
+  const isLoading = dmId ? (loadingByChannel[dmId] ?? false) : false;
+  const hasMore = nextCursor !== null && nextCursor !== undefined;
+
+  // Fetch on DM change
+  const prevDMRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!dmId || prevDMRef.current === dmId) return;
+    prevDMRef.current = dmId;
+
+    // Only fetch if we don't have messages yet
+    if (!messagesByChannel[dmId]) {
+      fetchMessages(dmId, true);
+    }
+  }, [dmId, messagesByChannel, fetchMessages]);
+
+  // Load older messages
+  const loadMore = () => {
+    if (dmId && hasMore && !isLoading && nextCursor) {
+      fetchMessages(dmId, true, nextCursor);
     }
   };
 

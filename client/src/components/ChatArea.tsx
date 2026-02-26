@@ -6,8 +6,9 @@ import {
 import { useServerStore } from '@/store/useServerStore';
 import { useUIStore } from '@/store/useUIStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useChannelMessages } from '@/hooks/useMessages';
+import { useChannelMessages, useDMMessages } from '@/hooks/useMessages';
 import { useSocket } from '@/hooks/useSocket';
+import { useDMStore } from '@/store/useDMStore';
 import { MessageInput } from './MessageInput';
 import { cn, formatMessageTime, formatDateDivider } from '@/lib/utils';
 import { VoiceChannel } from './voice/VoiceChannel';
@@ -195,9 +196,34 @@ const MessageGroupItem = memo(function MessageGroupItem({
 // ─── Channel Header ───────────────────────────────────────────────────────────
 
 function ChannelHeader() {
-  const { selectedServer } = useServerStore();
-  const { selectedChannel } = useServerStore();
-  const { membersPanelOpen, toggleMembersPanel } = useUIStore();
+  const { selectedServer, selectedChannel } = useServerStore();
+  const { dmMode, selectedDMId, membersPanelOpen, toggleMembersPanel } = useUIStore();
+  const { dmChannels } = useDMStore();
+
+  if (dmMode && selectedDMId) {
+    const dm = dmChannels.find(c => c.id === selectedDMId);
+    if (!dm) return null;
+    return (
+      <div className="h-14 px-4 flex items-center justify-between border-b border-white/5 bg-surface-base/80 backdrop-blur-sm flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            {dm.recipient.avatar ? (
+              <img src={dm.recipient.avatar} alt={dm.recipient.username} className="w-8 h-8 rounded-full" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-white text-xs font-bold">
+                {dm.recipient.username[0].toUpperCase()}
+              </div>
+            )}
+            <div className={cn(
+              "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-base",
+              dm.recipient.status === 'ONLINE' ? 'bg-green-500' : 'bg-gray-500'
+            )} />
+          </div>
+          <span className="font-semibold text-white">{dm.recipient.username}</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!selectedChannel) return null;
 
@@ -288,24 +314,40 @@ function TypingIndicator({ names }: { names: string[] }) {
 
 export function ChatArea() {
   const { selectedChannel, selectedChannelId } = useServerStore();
+  const { dmMode, selectedDMId, typingUsers } = useUIStore();
   const { user } = useAuthStore();
-  const { typingUsers } = useUIStore();
-  const { joinChannel, leaveChannel } = useSocket();
+  const { joinChannel, leaveChannel, joinDM } = useSocket();
 
-  const { groupedMessages, isLoading, hasMore, loadMore } = useChannelMessages(selectedChannelId);
+  const channelMessages = useChannelMessages(selectedChannelId);
+  const dmMessages = useDMMessages(selectedDMId);
+
+  const { groupedMessages, isLoading, hasMore, loadMore } = dmMode ? dmMessages : channelMessages;
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const prevChannelRef = useRef<string | null>(null);
+  const prevIdRef = useRef<string | null>(null);
 
-  // Join/leave channel socket room
+  // Join/leave socket room
   useEffect(() => {
-    if (!selectedChannelId) return;
-    if (prevChannelRef.current && prevChannelRef.current !== selectedChannelId) {
-      leaveChannel(prevChannelRef.current);
+    const currentId = dmMode ? selectedDMId : selectedChannelId;
+    if (!currentId) return;
+
+    if (prevIdRef.current && prevIdRef.current !== currentId) {
+      if (dmMode) {
+        // No leaveDM defined yet, but leaveChannel works if rooms are named consistently
+        // or we just leave the previous room.
+        leaveChannel(`dm:${prevIdRef.current}`);
+      } else {
+        leaveChannel(prevIdRef.current);
+      }
     }
-    joinChannel(selectedChannelId);
-    prevChannelRef.current = selectedChannelId;
-  }, [selectedChannelId, joinChannel, leaveChannel]);
+
+    if (dmMode) {
+      joinDM(currentId);
+    } else {
+      joinChannel(currentId);
+    }
+    prevIdRef.current = currentId;
+  }, [selectedChannelId, selectedDMId, dmMode, joinChannel, leaveChannel, joinDM]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -319,14 +361,14 @@ export function ChatArea() {
     }
   }, [hasMore, isLoading, loadMore]);
 
-  if (!selectedChannel) {
+  if (!selectedChannel && !selectedDMId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface-base">
         <div className="text-center">
-          {useUIStore.getState().dmMode ? (
+          {dmMode ? (
             <>
               <MessageSquare className="w-16 h-16 text-white/10 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white/30">Direct Messaging coming soon</h3>
+              <h3 className="text-xl font-semibold text-white/30">Select a friend to start chatting</h3>
             </>
           ) : (
             <>
@@ -339,7 +381,8 @@ export function ChatArea() {
     );
   }
 
-  const typingNames = typingUsers[selectedChannelId ?? ''] ?? [];
+  const activeId = dmMode ? selectedDMId : selectedChannelId;
+  const typingNames = typingUsers[activeId ?? ''] ?? [];
 
   // Find date separators
   const messageGroups = groupedMessages;
@@ -373,10 +416,19 @@ export function ChatArea() {
         {!hasMore && (
           <div className="px-4 py-8">
             <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-brand/15 mb-4">
-              <Hash className="w-8 h-8 text-brand-light" />
+              {dmMode ? <MessageSquare className="w-8 h-8 text-brand-light" /> : <Hash className="w-8 h-8 text-brand-light" />}
             </div>
-            <h2 className="text-2xl font-bold text-white mb-1">Welcome to #{selectedChannel.name}!</h2>
-            <p className="text-white/40">This is the start of the #{selectedChannel.name} channel.</p>
+            {dmMode ? (
+              <>
+                <h2 className="text-2xl font-bold text-white mb-1">Direct conversation</h2>
+                <p className="text-white/40">This is the beginning of your direct message history.</p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold text-white mb-1">Welcome to #{selectedChannel?.name}!</h2>
+                <p className="text-white/40">This is the start of the #{selectedChannel?.name} channel.</p>
+              </>
+            )}
           </div>
         )}
 
@@ -404,7 +456,12 @@ export function ChatArea() {
       <TypingIndicator names={typingNames} />
 
       {/* Message input */}
-      <MessageInput channel={selectedChannel} />
+      <MessageInput
+        id={activeId!}
+        name={dmMode ? "Direct Message" : (selectedChannel?.name || "channel")}
+        isDM={dmMode}
+        type={selectedChannel?.type}
+      />
     </div>
   );
 }

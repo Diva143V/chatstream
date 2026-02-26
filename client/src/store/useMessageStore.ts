@@ -11,7 +11,7 @@ interface MessageStore {
   loadingByChannel: Record<string, boolean>;
 
   // Actions
-  fetchMessages: (channelId: string, cursor?: string) => Promise<void>;
+  fetchMessages: (id: string, isDM?: boolean, cursor?: string) => Promise<void>;
   addMessage: (message: Message) => void;
   updateMessage: (message: Partial<Message> & { id: string }) => void;
   deleteMessage: (messageId: string, channelId: string) => void;
@@ -24,25 +24,26 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
   cursorByChannel: {},
   loadingByChannel: {},
 
-  fetchMessages: async (channelId, cursor) => {
+  fetchMessages: async (id, isDM = false, cursor) => {
     // Prevent duplicate fetches
-    if (get().loadingByChannel[channelId]) return;
+    if (get().loadingByChannel[id]) return;
 
     set((state) => ({
-      loadingByChannel: { ...state.loadingByChannel, [channelId]: true },
+      loadingByChannel: { ...state.loadingByChannel, [id]: true },
     }));
 
     try {
       const params: Record<string, string> = { limit: '50' };
       if (cursor) params.cursor = cursor;
 
+      const endpoint = isDM ? `/messages/dm/${id}` : `/messages/channel/${id}`;
       const { data } = await api.get<{ messages: Message[]; nextCursor: string | null }>(
-        `/messages/channel/${channelId}`,
+        endpoint,
         { params }
       );
 
       set((state) => {
-        const existing = state.messagesByChannel[channelId] ?? [];
+        const existing = state.messagesByChannel[id] ?? [];
         // Prepend older messages if paginating
         const merged = cursor ? [...data.messages, ...existing] : data.messages;
         // Deduplicate
@@ -51,13 +52,13 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
         );
 
         return {
-          messagesByChannel: { ...state.messagesByChannel, [channelId]: deduped },
-          cursorByChannel: { ...state.cursorByChannel, [channelId]: data.nextCursor },
+          messagesByChannel: { ...state.messagesByChannel, [id]: deduped },
+          cursorByChannel: { ...state.cursorByChannel, [id]: data.nextCursor },
         };
       });
     } finally {
       set((state) => ({
-        loadingByChannel: { ...state.loadingByChannel, [channelId]: false },
+        loadingByChannel: { ...state.loadingByChannel, [id]: false },
       }));
     }
   },

@@ -106,17 +106,17 @@ router.post(
           channelId,
           attachments: files?.length
             ? {
-                create: files.map((file) => ({
-                  url: file.path,
-                  name: file.originalname,
-                  size: file.size,
-                  type: file.mimetype.startsWith('image/')
-                    ? 'IMAGE'
-                    : file.mimetype.startsWith('video/')
+              create: files.map((file) => ({
+                url: file.path,
+                name: file.originalname,
+                size: file.size,
+                type: file.mimetype.startsWith('image/')
+                  ? 'IMAGE'
+                  : file.mimetype.startsWith('video/')
                     ? 'VIDEO'
                     : 'FILE',
-                })),
-              }
+              })),
+            }
             : undefined,
         },
         select: messageSelect,
@@ -125,6 +125,108 @@ router.post(
       return res.status(201).json({ message });
     } catch (error) {
       console.error('Create message error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// GET /api/messages/dm/:dmId
+router.get('/dm/:dmId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { dmId } = req.params;
+    const { cursor, limit = '50' } = req.query;
+    const take = Math.min(parseInt(limit as string), 100);
+
+    // Verify user is a participant of the DM
+    const dm = await prisma.directMessage.findUnique({
+      where: { id: dmId },
+      include: { participants: { where: { userId: req.user!.id } } },
+    });
+
+    if (!dm || dm.participants.length === 0) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const messages = await prisma.message.findMany({
+      where: { dmId },
+      select: messageSelect,
+      orderBy: { createdAt: 'desc' },
+      take,
+      ...(cursor && {
+        cursor: { id: cursor as string },
+        skip: 1,
+      }),
+    });
+
+    const sorted = messages.reverse();
+
+    return res.json({
+      messages: sorted,
+      nextCursor: messages.length === take ? sorted[0].id : null,
+    });
+  } catch (error) {
+    console.error('Get DM messages error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/messages/dm/:dmId
+router.post(
+  '/dm/:dmId',
+  authenticate,
+  uploadAttachment.array('attachments', 10),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { dmId } = req.params;
+      const { content } = req.body;
+      const files = req.files as Array<Express.Multer.File & { path: string; originalname: string; size: number; mimetype: string }>;
+
+      if (!content?.trim() && (!files || files.length === 0)) {
+        return res.status(400).json({ error: 'Message must have content or attachments' });
+      }
+
+      // Verify DM access
+      const dm = await prisma.directMessage.findUnique({
+        where: { id: dmId },
+        include: { participants: { where: { userId: req.user!.id } } },
+      });
+
+      if (!dm || dm.participants.length === 0) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const message = await prisma.message.create({
+        data: {
+          content: content?.trim() || '',
+          authorId: req.user!.id,
+          dmId,
+          attachments: files?.length
+            ? {
+              create: files.map((file) => ({
+                url: file.path,
+                name: file.originalname,
+                size: file.size,
+                type: file.mimetype.startsWith('image/')
+                  ? 'IMAGE'
+                  : file.mimetype.startsWith('video/')
+                    ? 'VIDEO'
+                    : 'FILE',
+              })),
+            }
+            : undefined,
+        },
+        select: messageSelect,
+      });
+
+      // Update DM updatedAt for sorting
+      await prisma.directMessage.update({
+        where: { id: dmId },
+        data: { updatedAt: new Date() },
+      });
+
+      return res.status(201).json({ message });
+    } catch (error) {
+      console.error('Create DM message error:', error);
       return res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -168,8 +270,8 @@ router.delete('/:messageId', authenticate, async (req: AuthRequest, res: Respons
 
     const isAuthor = message.authorId === req.user!.id;
     const isAdmin = message.channel?.server.members.some((m) =>
-  m.role === 'ADMIN' || m.role === 'OWNER'
-);
+      m.role === 'ADMIN' || m.role === 'OWNER'
+    );
 
     if (!isAuthor && !isAdmin) {
       return res.status(403).json({ error: 'Permission denied' });

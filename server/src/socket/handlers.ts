@@ -212,6 +212,8 @@ export function registerSocketHandlers(io: Server) {
 
     socket.on('dm:send', async (data: { dmId: string; content: string }) => {
       try {
+        if (!data.content?.trim()) return;
+
         // Verify participant
         const participant = await prisma.directMessageParticipant.findUnique({
           where: { dmId_userId: { dmId: data.dmId, userId } },
@@ -223,24 +225,32 @@ export function registerSocketHandlers(io: Server) {
         }
 
         const message = await prisma.message.create({
-          data: { content: data.content.trim(), authorId: userId, dmId: data.dmId, channelId: data.dmId },
+          data: { content: data.content.trim(), authorId: userId, dmId: data.dmId },
           select: {
             id: true,
             content: true,
+            edited: true,
             dmId: true,
             createdAt: true,
-            author: { select: { id: true, username: true, avatar: true } },
+            author: { select: { id: true, username: true, avatar: true, status: true } },
+            attachments: true,
+            reactions: true,
           },
         });
 
         // Update DM updatedAt
         await prisma.directMessage.update({ where: { id: data.dmId }, data: { updatedAt: new Date() } });
 
-        io.to(`dm:${data.dmId}`).emit('dm:message', message);
+        // Broadcast to DM room
+        io.to(`dm:${data.dmId}`).emit('message:new', { ...message, channelId: data.dmId });
       } catch (error) {
         console.error('[Socket] dm:send error:', error);
         socket.emit('error', { message: 'Failed to send DM' });
       }
+    });
+
+    socket.on('dm:leave', (dmId: string) => {
+      socket.leave(`dm:${dmId}`);
     });
 
     // ─── Disconnect ───────────────────────────────────────────────────────────

@@ -3,17 +3,20 @@ import { Paperclip, Smile, Send, Plus } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useSocket } from '@/hooks/useSocket';
 import { cn } from '@/lib/utils';
-import type { Channel } from '@/types';
+// No types needed here as we use string literals in props
 
 interface MessageInputProps {
-  channel: Channel;
+  id: string;
+  name: string;
+  isDM?: boolean;
+  type?: 'TEXT' | 'VOICE' | 'ANNOUNCEMENT';
 }
 
 const TYPING_DEBOUNCE_MS = 2000;
 
-export function MessageInput({ channel }: MessageInputProps) {
+export function MessageInput({ id, name, isDM, type = 'TEXT' }: MessageInputProps) {
   const { user } = useAuthStore();
-  const { sendMessage, startTyping, stopTyping } = useSocket();
+  const { sendMessage, sendDM, startTyping, stopTyping } = useSocket();
   const [content, setContent] = useState('');
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
@@ -30,30 +33,34 @@ export function MessageInput({ channel }: MessageInputProps) {
   const handleTyping = useCallback(() => {
     if (!isTypingRef.current) {
       isTypingRef.current = true;
-      startTyping(channel.id);
+      startTyping(id);
     }
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       isTypingRef.current = false;
-      stopTyping(channel.id);
+      stopTyping(id);
     }, TYPING_DEBOUNCE_MS);
-  }, [channel.id, startTyping, stopTyping]);
+  }, [id, startTyping, stopTyping]);
 
   const handleSend = useCallback(() => {
     const trimmed = content.trim();
     if (!trimmed || !user) return;
 
-    sendMessage(channel.id, trimmed);
+    if (isDM) {
+      sendDM(id, trimmed);
+    } else {
+      sendMessage(id, trimmed);
+    }
     setContent('');
 
     // Stop typing indicator
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     if (isTypingRef.current) {
       isTypingRef.current = false;
-      stopTyping(channel.id);
+      stopTyping(id);
     }
-  }, [content, user, channel.id, sendMessage, stopTyping]);
+  }, [content, user, id, isDM, sendMessage, sendDM, stopTyping]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -62,12 +69,13 @@ export function MessageInput({ channel }: MessageInputProps) {
     }
   };
 
-  const placeholder =
-    channel.type === 'VOICE'
+  const placeholder = isDM
+    ? `Message ${name}`
+    : type === 'VOICE'
       ? 'This is a voice channel'
-      : `Message #${channel.name}`;
+      : `Message #${name}`;
 
-  const disabled = channel.type === 'VOICE';
+  const disabled = type === 'VOICE';
 
   return (
     <div className="px-4 pb-4 pt-2">
