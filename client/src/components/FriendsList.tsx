@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { cn, getStatusColor } from '@/lib/utils';
 
 export function FriendsList() {
-    const { friends, fetchFriends, loading } = useDMStore();
+    const { friends, fetchFriends, loading, getOrCreateDM } = useDMStore();
     const { setDMMode, openProfile, toggleAddFriend } = useUIStore();
     const { user } = useAuthStore();
     const [filter, setFilter] = useState<'ALL' | 'ONLINE' | 'PENDING' | 'BLOCKED'>('ONLINE');
@@ -119,7 +119,12 @@ export function FriendsList() {
                                         {friend.relationStatus === 'ACCEPTED' ? (
                                             <>
                                                 <button
-                                                    onClick={() => setDMMode(true, friend.id)}
+                                                    onClick={async () => {
+                                                        const dmId = await getOrCreateDM(friend.id);
+                                                        if (dmId) {
+                                                            setDMMode(true, dmId);
+                                                        }
+                                                    }}
                                                     className="p-2 bg-surface-overlay text-white/60 hover:text-white hover:bg-brand rounded-full transition-all"
                                                     title="Message"
                                                 >

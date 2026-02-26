@@ -110,44 +110,70 @@ export function useSocket() {
 
   // ─── Actions ─────────────────────────────────────────────────────────────────
 
+  const getSocket = () => socketRef.current || socketInstance;
+
   const joinChannel = useCallback((channelId: string) => {
-    socketRef.current?.emit('channel:join', channelId);
+    const socket = getSocket();
+    if (socket) {
+      console.log(`[Socket] Joining channel: ${channelId}`);
+      socket.emit('channel:join', channelId);
+    }
   }, []);
 
   const leaveChannel = useCallback((channelId: string) => {
-    socketRef.current?.emit('channel:leave', channelId);
+    const socket = getSocket();
+    if (socket) {
+      console.log(`[Socket] Leaving channel: ${channelId}`);
+      socket.emit('channel:leave', channelId);
+    }
   }, []);
 
   const sendMessage = useCallback((channelId: string, content: string) => {
-    socketRef.current?.emit('message:send', { channelId, content });
+    const socket = getSocket();
+    if (socket) {
+      console.log(`[Socket] Sending message to channel: ${channelId}`);
+      socket.emit('message:send', { channelId, content });
+    } else {
+      console.warn('[Socket] Cannot send message: No socket connection');
+    }
   }, []);
 
   const editMessage = useCallback((messageId: string, content: string) => {
-    socketRef.current?.emit('message:edit', { messageId, content });
+    getSocket()?.emit('message:edit', { messageId, content });
   }, []);
 
   const deleteMessageSocket = useCallback((messageId: string, channelId: string) => {
-    socketRef.current?.emit('message:delete', { messageId, channelId });
+    getSocket()?.emit('message:delete', { messageId, channelId });
   }, []);
 
   const reactToMessage = useCallback((messageId: string, emoji: string) => {
-    socketRef.current?.emit('message:react', { messageId, emoji });
+    getSocket()?.emit('message:react', { messageId, emoji });
   }, []);
 
   const startTyping = useCallback((channelId: string) => {
-    socketRef.current?.emit('typing:start', channelId);
+    getSocket()?.emit('typing:start', channelId);
   }, []);
 
   const stopTyping = useCallback((channelId: string) => {
-    socketRef.current?.emit('typing:stop', channelId);
+    getSocket()?.emit('typing:stop', channelId);
   }, []);
 
   const joinDM = useCallback((dmId: string) => {
-    socketRef.current?.emit('dm:join', dmId);
+    const socket = getSocket();
+    if (socket) {
+      console.log(`[Socket] Joining DM: ${dmId}`);
+      socket.emit('dm:join', dmId);
+    }
   }, []);
 
   const sendDM = useCallback((dmId: string, content: string) => {
-    socketRef.current?.emit('dm:send', { dmId, content });
+    const socket = getSocket();
+    if (socket) {
+      console.log(`[Socket] Sending DM to: ${dmId}`);
+      socket.emit('dm:send', { dmId, content });
+    } else {
+      console.warn('[Socket] Cannot send DM: No socket connection');
+    }
   }, []);
 
   return {
