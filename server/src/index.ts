@@ -13,6 +13,7 @@ import authRoutes from './routes/auth';
 import serverRoutes from './routes/servers';
 import messageRoutes from './routes/messages';
 import friendRoutes from './routes/friends';
+import voiceRoutes from './routes/voice';
 
 const app = express();
 const httpServer = createServer(app);
@@ -78,6 +79,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/servers', serverRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/friends', friendRoutes);
+app.use('/api/voice', voiceRoutes);
 
 // Health check
 app.get('/health', (_req: express.Request, res: express.Response) => {

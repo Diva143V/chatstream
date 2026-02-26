@@ -10,6 +10,7 @@ import { useChannelMessages } from '@/hooks/useMessages';
 import { useSocket } from '@/hooks/useSocket';
 import { MessageInput } from './MessageInput';
 import { cn, formatMessageTime, formatDateDivider } from '@/lib/utils';
+import { VoiceChannel } from './voice/VoiceChannel';
 import type { Message, MessageGroup } from '@/types';
 
 // ─── Message Action Toolbar ───────────────────────────────────────────────────
@@ -342,6 +343,18 @@ export function ChatArea() {
 
   // Find date separators
   const messageGroups = groupedMessages;
+
+  if (selectedChannel?.type === 'VOICE') {
+    return (
+      <div className="flex-1 flex flex-col bg-surface-base overflow-hidden">
+        <ChannelHeader />
+        <VoiceChannel
+          channelId={selectedChannel.id}
+          channelName={selectedChannel.name}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-surface-base overflow-hidden">
