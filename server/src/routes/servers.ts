@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { ChannelType } from '@prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { generateInviteCode } from '../lib/utils';
 import { logAuditAction } from '../lib/audit';
@@ -63,18 +64,28 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         members: {
           create: { userId: req.user!.id, role: 'OWNER' },
         },
-        channels: {
-          create: [
-            { name: 'general', type: 'TEXT', category: 'General', position: 0 },
-            { name: 'announcements', type: 'ANNOUNCEMENT', category: 'General', position: 1 },
-            { name: 'General Voice', type: 'VOICE', category: 'Voice Channels', position: 2 },
-          ],
-        },
       },
       select: serverSelect,
     });
 
-    return res.status(201).json({ server });
+    // Create default channels
+    const defaultChannels = [
+      { serverId: server.id, name: 'general', type: 'GROUP_CHAT' as ChannelType, category: 'General', position: 0 },
+      { serverId: server.id, name: 'announcements', type: 'NOTE' as ChannelType, category: 'General', position: 1 },
+      { serverId: server.id, name: 'General Voice', type: 'VOICE_CALL' as ChannelType, category: 'Voice Channels', position: 2 },
+    ];
+
+    await prisma.channel.createMany({
+      data: defaultChannels,
+    });
+
+    // Fetch server with channels
+    const serverWithChannels = await prisma.server.findUnique({
+      where: { id: server.id },
+      select: serverSelect,
+    });
+
+    return res.status(201).json({ server: serverWithChannels });
   } catch (error) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors[0].message });
     console.error('Create server error:', error);
@@ -113,7 +124,7 @@ router.post('/:serverId/channels', authenticate, async (req: AuthRequest, res: R
     const { name, type, category } = z
       .object({
         name: z.string().min(1).max(100),
-        type: z.enum(['TEXT', 'VOICE', 'ANNOUNCEMENT']).default('TEXT'),
+        type: z.enum(['NOTE', 'GROUP_CHAT', 'VOICE_CALL']).default('GROUP_CHAT'),
         category: z.string().optional(),
       })
       .parse(req.body);
@@ -130,7 +141,7 @@ router.post('/:serverId/channels', authenticate, async (req: AuthRequest, res: R
     const position = await prisma.channel.count({ where: { serverId } });
 
     const channel = await prisma.channel.create({
-      data: { name, type, serverId, category, position },
+      data: { name, type: type as ChannelType, serverId, category, position },
     });
 
     await logAuditAction({

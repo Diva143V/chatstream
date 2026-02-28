@@ -16,7 +16,7 @@ export interface User {
 
 // ─── Server ───────────────────────────────────────────────────────────────────
 
-export type ChannelType = 'TEXT' | 'VOICE' | 'ANNOUNCEMENT';
+export type ChannelType = 'NOTE' | 'GROUP_CHAT' | 'VOICE_CALL';
 export type MemberRole = 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
 
 export interface Channel {

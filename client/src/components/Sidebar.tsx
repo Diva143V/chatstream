@@ -12,8 +12,8 @@ import { useEffect } from 'react';
 
 function ChannelIcon({ type }: { type: ChannelType }) {
   switch (type) {
-    case 'VOICE': return <Volume2 className="w-4 h-4" />;
-    case 'ANNOUNCEMENT': return <Megaphone className="w-4 h-4" />;
+    case 'VOICE_CALL': return <Volume2 className="w-4 h-4" />;
+    case 'NOTE': return <Megaphone className="w-4 h-4" />;
     default: return <Hash className="w-4 h-4" />;
   }
 }
