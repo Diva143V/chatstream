@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -202,7 +202,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // Publish a server (make it public)
-router.post('/publish/:serverId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/publish/:serverId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -245,7 +245,7 @@ router.post('/publish/:serverId', authenticateToken, async (req: AuthRequest, re
 });
 
 // Unpublish a server
-router.post('/unpublish/:serverId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/unpublish/:serverId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -279,3 +279,4 @@ router.post('/unpublish/:serverId', authenticateToken, async (req: AuthRequest, 
 });
 
 export default router;
+

@@ -1,12 +1,8 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
-
-interface AuthRequest extends Request {
-  userId?: string;
-}
 
 // Get user presence/status
 router.get('/user/:userId', async (req: AuthRequest, res: Response) => {
@@ -71,9 +67,9 @@ router.post('/users', async (req: AuthRequest, res: Response) => {
 });
 
 // Update current user presence
-router.patch('/update', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.patch('/update', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.user?.id;
     const { status, customStatus, customStatusEmoji, statusExpiresAt, activeDevice } = req.body;
 
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -108,9 +104,9 @@ router.patch('/update', authenticateToken, async (req: AuthRequest, res: Respons
 });
 
 // Clear custom status
-router.delete('/custom-status', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.delete('/custom-status', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const updated = await prisma.user.update({

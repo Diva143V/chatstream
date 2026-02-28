@@ -115,7 +115,6 @@ model Server {
   moderationActions ModerationAction[]
   auditLogs         AuditLog[]
   roles             Role[]
-  webhooks          Webhook[]
   botInstallations  BotInstallation[]
 
   // Discovery

@@ -54,7 +54,7 @@ interface NotificationStoreState {
 }
 
 export const useNotificationStore = create<NotificationStoreState>()(
-  subscribeWithSelector((set, get) => ({
+  subscribeWithSelector((set) => ({
     notifications: [],
     unreadCount: 0,
     mutedChannels: new Set(),

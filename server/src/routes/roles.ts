@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ interface AuthRequest extends Request {
 }
 
 // Get all roles in a server
-router.get('/servers/:serverId/roles', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/servers/:serverId/roles', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -30,7 +30,7 @@ router.get('/servers/:serverId/roles', authenticateToken, async (req: AuthReques
       orderBy: { position: 'desc' },
       include: {
         members: {
-          select: { id: true, username: true },
+          select: { id: true, userId: true },
         },
       },
     });
@@ -43,7 +43,7 @@ router.get('/servers/:serverId/roles', authenticateToken, async (req: AuthReques
 });
 
 // Create a new role
-router.post('/servers/:serverId/roles', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/servers/:serverId/roles', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -109,7 +109,7 @@ router.post('/servers/:serverId/roles', authenticateToken, async (req: AuthReque
 });
 
 // Update a role
-router.patch('/servers/:serverId/roles/:roleId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.patch('/servers/:serverId/roles/:roleId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId, roleId } = req.params;
@@ -174,7 +174,7 @@ router.patch('/servers/:serverId/roles/:roleId', authenticateToken, async (req: 
 });
 
 // Delete a role
-router.delete('/servers/:serverId/roles/:roleId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.delete('/servers/:serverId/roles/:roleId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId, roleId } = req.params;
@@ -227,7 +227,7 @@ router.delete('/servers/:serverId/roles/:roleId', authenticateToken, async (req:
 });
 
 // Add role to a member
-router.post('/servers/:serverId/members/:memberId/roles/:roleId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/servers/:serverId/members/:memberId/roles/:roleId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId, memberId, roleId } = req.params;
@@ -250,6 +250,7 @@ router.post('/servers/:serverId/members/:memberId/roles/:roleId', authenticateTo
 
     const targetMember = await prisma.serverMember.findUnique({
       where: { id: memberId },
+      include: { roles: true },
     });
 
     if (!targetMember || targetMember.serverId !== serverId) {
@@ -265,7 +266,7 @@ router.post('/servers/:serverId/members/:memberId/roles/:roleId', authenticateTo
     }
 
     // Check if member already has role
-    const hasRole = targetMember.roles?.some((r) => r.id === roleId);
+    const hasRole = targetMember.roles?.some((r: any) => r.id === roleId);
     if (hasRole) {
       return res.status(400).json({ error: 'Member already has this role' });
     }
@@ -300,7 +301,7 @@ router.post('/servers/:serverId/members/:memberId/roles/:roleId', authenticateTo
 });
 
 // Remove role from a member
-router.delete('/servers/:serverId/members/:memberId/roles/:roleId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.delete('/servers/:serverId/members/:memberId/roles/:roleId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId, memberId, roleId } = req.params;
@@ -359,3 +360,4 @@ router.delete('/servers/:serverId/members/:memberId/roles/:roleId', authenticate
 });
 
 export default router;
+

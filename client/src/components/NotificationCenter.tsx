@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNotificationStore } from '../../store/useNotificationStore';
+import { useNotificationStore } from '../store/useNotificationStore';
 import { Bell, X, Check, Settings } from 'lucide-react';
 
 interface Notification {
@@ -93,7 +93,7 @@ export const NotificationCenter: React.FC = () => {
                     No notifications yet
                   </div>
                 ) : (
-                  notifications.map((notification) => (
+                  notifications.map((notification: Notification) => (
                     <NotificationItem
                       key={notification.id}
                       notification={notification}

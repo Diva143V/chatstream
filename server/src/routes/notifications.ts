@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ interface AuthRequest extends Request {
 }
 
 // Get all notifications for current user
-router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -29,7 +29,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 });
 
 // Get unread count
-router.get('/unread-count', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/unread-count', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -46,7 +46,7 @@ router.get('/unread-count', authenticateToken, async (req: AuthRequest, res: Res
 });
 
 // Mark notification as read
-router.patch('/:notificationId/read', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.patch('/:notificationId/read', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { notificationId } = req.params;
@@ -74,7 +74,7 @@ router.patch('/:notificationId/read', authenticateToken, async (req: AuthRequest
 });
 
 // Mark all notifications as read
-router.patch('/read-all', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.patch('/read-all', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -92,7 +92,7 @@ router.patch('/read-all', authenticateToken, async (req: AuthRequest, res: Respo
 });
 
 // Get notification settings
-router.get('/settings', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/settings', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -115,7 +115,7 @@ router.get('/settings', authenticateToken, async (req: AuthRequest, res: Respons
 });
 
 // Update notification settings
-router.patch('/settings', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.patch('/settings', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { muteAll, mentions, replies, dms, enableSounds } = req.body;
@@ -150,7 +150,7 @@ router.patch('/settings', authenticateToken, async (req: AuthRequest, res: Respo
 });
 
 // Mute channel
-router.post('/mute-channel', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/mute-channel', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId, until } = req.body;
@@ -183,7 +183,7 @@ router.post('/mute-channel', authenticateToken, async (req: AuthRequest, res: Re
 });
 
 // Unmute channel
-router.delete('/unmute-channel/:channelId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.delete('/unmute-channel/:channelId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId } = req.params;
@@ -214,7 +214,7 @@ router.delete('/unmute-channel/:channelId', authenticateToken, async (req: AuthR
 });
 
 // Mute server
-router.post('/mute-server', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/mute-server', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId, until } = req.body;
@@ -247,7 +247,7 @@ router.post('/mute-server', authenticateToken, async (req: AuthRequest, res: Res
 });
 
 // Unmute server
-router.delete('/unmute-server/:serverId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.delete('/unmute-server/:serverId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -278,7 +278,7 @@ router.delete('/unmute-server/:serverId', authenticateToken, async (req: AuthReq
 });
 
 // Toggle mute all
-router.patch('/mute-all', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.patch('/mute-all', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -306,3 +306,4 @@ router.patch('/mute-all', authenticateToken, async (req: AuthRequest, res: Respo
 });
 
 export default router;
+

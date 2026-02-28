@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ interface AuthRequest extends Request {
 }
 
 // Get audit logs for a server
-router.get('/servers/:serverId/audit-logs', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/servers/:serverId/audit-logs', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -36,7 +36,7 @@ router.get('/servers/:serverId/audit-logs', authenticateToken, async (req: AuthR
     const logs = await prisma.auditLog.findMany({
       where: {
         serverId,
-        ...(action && { action: action as string }),
+        ...(action && { action: action as any }),
         ...(targetUserId && { targetId: targetUserId as string }),
       },
       include: {
@@ -65,7 +65,7 @@ router.get('/servers/:serverId/audit-logs', authenticateToken, async (req: AuthR
 });
 
 // Get single audit log
-router.get('/audit-logs/:logId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/audit-logs/:logId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { logId } = req.params;
@@ -103,7 +103,7 @@ router.get('/audit-logs/:logId', authenticateToken, async (req: AuthRequest, res
 });
 
 // Get log statistics for a server
-router.get('/servers/:serverId/audit-stats', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/servers/:serverId/audit-stats', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -177,3 +177,4 @@ router.get('/servers/:serverId/audit-stats', authenticateToken, async (req: Auth
 });
 
 export default router;
+

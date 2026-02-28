@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -11,7 +11,7 @@ interface AuthRequest extends Request {
 // ─── Server Settings ──────────────────────────────────────────────────────
 
 // Get server settings
-router.get('/servers/:serverId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/servers/:serverId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -40,7 +40,7 @@ router.get('/servers/:serverId', authenticateToken, async (req: AuthRequest, res
 });
 
 // Update server settings
-router.patch('/servers/:serverId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.patch('/servers/:serverId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { serverId } = req.params;
@@ -101,7 +101,7 @@ router.patch('/servers/:serverId', authenticateToken, async (req: AuthRequest, r
 // ─── Channel Settings ─────────────────────────────────────────────────────
 
 // Get channel settings
-router.get('/channels/:channelId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/channels/:channelId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId } = req.params;
@@ -130,7 +130,7 @@ router.get('/channels/:channelId', authenticateToken, async (req: AuthRequest, r
 });
 
 // Update channel settings
-router.patch('/channels/:channelId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.patch('/channels/:channelId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId } = req.params;
@@ -186,3 +186,4 @@ router.patch('/channels/:channelId', authenticateToken, async (req: AuthRequest,
 });
 
 export default router;
+

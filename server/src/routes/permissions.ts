@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { Permissions, getUserChannelPermissions } from '../lib/permissions';
 
 const router = express.Router();
@@ -10,7 +10,7 @@ interface AuthRequest extends Request {
 }
 
 // Get channel permissions for current user
-router.get('/channel/:channelId/permissions', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/channel/:channelId/permissions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId } = req.params;
@@ -35,7 +35,7 @@ router.get('/channel/:channelId/permissions', authenticateToken, async (req: Aut
 });
 
 // Get all role permissions in a channel
-router.get('/channel/:channelId/role-permissions', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/channel/:channelId/role-permissions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId } = req.params;
@@ -70,7 +70,7 @@ router.get('/channel/:channelId/role-permissions', authenticateToken, async (req
 });
 
 // Set role permissions in a channel
-router.post('/channel/:channelId/role/:roleId/permissions', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/channel/:channelId/role/:roleId/permissions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId, roleId } = req.params;
@@ -128,7 +128,7 @@ router.post('/channel/:channelId/role/:roleId/permissions', authenticateToken, a
 });
 
 // Set user permissions in a channel
-router.post('/channel/:channelId/user/:targetUserId/permissions', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/channel/:channelId/user/:targetUserId/permissions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId, targetUserId } = req.params;
@@ -179,7 +179,7 @@ router.post('/channel/:channelId/user/:targetUserId/permissions', authenticateTo
 });
 
 // Delete permission override
-router.delete('/channel/:channelId/permissions/:permissionId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.delete('/channel/:channelId/permissions/:permissionId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { channelId, permissionId } = req.params;
@@ -221,3 +221,4 @@ router.delete('/channel/:channelId/permissions/:permissionId', authenticateToken
 });
 
 export default router;
+
