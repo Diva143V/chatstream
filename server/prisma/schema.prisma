@@ -10,34 +10,41 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  username      String    @unique
-  password      String
-  avatar        String?
-  banner        String?
-  bio           String?
-  status        UserStatus @default(OFFLINE)
-  statusText    String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  username              String    @unique
+  password              String
+  avatar                String?
+  banner                String?
+  bio                   String?
+  status                UserStatus @default(OFFLINE)
+  statusText            String?
+  lastSeenAt            DateTime?
+  customStatus          String?
+  customStatusEmoji     String?
+  statusExpiresAt       DateTime?
+  activeDevice          DeviceType?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   // Relations
-  ownedServers  Server[]  @relation("ServerOwner")
-  memberships   ServerMember[]
-  messages      Message[]
+  ownedServers          Server[]  @relation("ServerOwner")
+  memberships           ServerMember[]
+  messages              Message[]
   sentFriendRequests    Friend[] @relation("FriendRequester")
   receivedFriendRequests Friend[] @relation("FriendReceiver")
-  dmParticipants DirectMessageParticipant[]
-  reactions     MessageReaction[]
-  notifications Notification[]
-  settings      UserSettings?
-  invites       Invite[]
+  dmParticipants        DirectMessageParticipant[]
+  reactions             MessageReaction[]
+  notifications         Notification[]
+  notificationSettings  NotificationSettings?
+  settings              UserSettings?
+  invites               Invite[]
   moderationActionsTarget ModerationAction[] @relation("ModTarget")
   moderationActionsModerator ModerationAction[] @relation("Moderator")
-  auditLogs     AuditLog[]
-  ownedBots     Bot[]
-  webhooks      Webhook[]
+  auditLogs             AuditLog[]
+  ownedBots             Bot[]
+  webhooks              Webhook[]
+  pinnedMessages        Message[] @relation("PinnedBy")
 
   @@map("users")
 }
@@ -68,20 +75,43 @@ model UserSettings {
   @@map("user_settings")
 }
 
-model Server {
-  id          String  @id @default(cuid())
-  name        String
-  icon        String?
-  banner      String?
-  description String?
-  ownerId     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model NotificationSettings {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  muteAll         Boolean  @default(false)
+  mentions        Boolean  @default(true)
+  replies         Boolean  @default(true)
+  dms             Boolean  @default(true)
+  mutedChannels   String[] // array of channelIds
+  mutedServers    String[] // array of serverIds
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  owner    User   @relation("ServerOwner", fields: [ownerId], references: [id])
-  members  ServerMember[]
-  channels Channel[]
-  invites  Invite[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+model Server {
+  id               String  @id @default(cuid())
+  name             String
+  icon             String?
+  banner           String?
+  description      String?
+  rules            String?
+  ownerId          String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Server Settings
+  verificationLevel VerificationLevel @default(NONE)
+  explicitFilter   ExplicitFilter @default(DISABLED)
+  systemChannelId  String?
+
+  owner             User   @relation("ServerOwner", fields: [ownerId], references: [id])
+  members           ServerMember[]
+  channels          Channel[]
+  invites           Invite[]
   moderationActions ModerationAction[]
   auditLogs         AuditLog[]
   roles             Role[]
@@ -115,40 +145,58 @@ model ServerMember {
 }
 
 model Channel {
-  id       String      @id @default(cuid())
-  name     String
-  type     ChannelType @default(TEXT)
-  serverId String
-  category String?
-  position Int         @default(0)
-  topic    String?
-  createdAt DateTime   @default(now())
+  id           String      @id @default(cuid())
+  name         String
+  type         ChannelType @default(TEXT)
+  serverId     String
+  category     String?
+  position     Int         @default(0)
+  topic        String?
+  slowmode     Int         @default(0) // seconds between messages
+  nsfw         Boolean     @default(false)
+  userLimit    Int?        // For voice channels
+  createdAt    DateTime    @default(now())
 
-  server   Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  messages Message[]
-  webhooks Webhook[]
+  server       Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  messages     Message[]
+  webhooks     Webhook[]
+  permissions  ChannelPermission[]
 
   @@map("channels")
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  content   String
-  authorId  String
-  channelId String?
-  dmId      String?
-  edited    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  content     String
+  authorId    String
+  channelId   String?
+  dmId        String?
+  edited      Boolean  @default(false)
+  
+  // Threading
+  parentId    String?
+  parent      Message? @relation("MessageReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Message[] @relation("MessageReplies")
+  replyCount  Int      @default(0)
+  
+  // Pinning
+  pinned      Boolean   @default(false)
+  pinnedAt    DateTime?
+  pinnedById  String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  author      User              @relation(fields: [authorId], references: [id])
-  channel     Channel?          @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  directMessage DirectMessage?  @relation(fields: [dmId], references: [id], onDelete: Cascade)
-  attachments Attachment[]
-  reactions   MessageReaction[]
+  author        User              @relation(fields: [authorId], references: [id])
+  channel       Channel?          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  directMessage DirectMessage?    @relation(fields: [dmId], references: [id], onDelete: Cascade)
+  attachments   Attachment[]
+  reactions     MessageReaction[]
+  pinnedBy      User?             @relation("PinnedBy", fields: [pinnedById], references: [id], onDelete: SetNull)
 
   @@index([channelId])
   @@index([dmId])
+  @@index([parentId])
   @@map("messages")
 }
 
@@ -350,6 +398,22 @@ model BotInstallation {
   @@map("bot_installations")
 }
 
+model ChannelPermission {
+  id        String  @id @default(cuid())
+  channelId String
+  roleId    String?
+  userId    String?
+  allow     Int     @default(0) // Bitfield: VIEW = 1, SEND = 2, ATTACH = 4, MANAGE = 8, etc.
+  deny      Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, roleId, userId])
+  @@map("channel_permissions")
+}
+
 // Enums
 enum UserStatus {
   ONLINE
@@ -440,4 +504,24 @@ enum AuditAction {
 enum VoiceMode {
   VOICE_ACTIVITY
   PUSH_TO_TALK
+}
+
+enum DeviceType {
+  WEB
+  DESKTOP
+  MOBILE
+}
+
+enum VerificationLevel {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum ExplicitFilter {
+  DISABLED
+  MEMBERS_WITHOUT_ROLES
+  ALL_MEMBERS
 }

@@ -34,6 +34,9 @@ export function registerSocketHandlers(io: Server) {
     const userId = socket.userId!;
     console.log(`[Socket] User ${userId} connected`);
 
+    // Join user-specific room for personal events
+    socket.join(`user:${userId}`);
+
     // Update user status to online
     await prisma.user.update({
       where: { id: userId },
@@ -127,6 +130,43 @@ export function registerSocketHandlers(io: Server) {
             reactions: true,
           },
         });
+
+        // Check for mentions and emit notifications
+        const mentionRegex = /<@(\w+)>/g;
+        let mentionMatch;
+        while ((mentionMatch = mentionRegex.exec(content)) !== null) {
+          const mentionedUserId = mentionMatch[1];
+          const mentionedUser = await prisma.user.findUnique({
+            where: { id: mentionedUserId },
+            include: { notificationSettings: true },
+          });
+
+          if (mentionedUser && mentionedUser.notificationSettings?.mentions) {
+            const notification = await prisma.notification.create({
+              data: {
+                userId: mentionedUserId,
+                type: 'MENTION',
+                title: `${socket.username} mentioned you`,
+                content: content.substring(0, 100),
+                data: {
+                  channelId,
+                  messageId: message.id,
+                  authorId: userId,
+                  username: socket.username,
+                },
+              },
+            });
+
+            // Emit notification via socket
+            io.to(`user:${mentionedUserId}`).emit('notification:new', {
+              id: notification.id,
+              type: 'MENTION',
+              title: notification.title,
+              content: notification.content,
+              data: notification.data,
+            });
+          }
+        }
 
         // Broadcast to channel
         io.to(`channel:${channelId}`).emit('message:new', message);
@@ -231,6 +271,97 @@ export function registerSocketHandlers(io: Server) {
       }
     });
 
+    // ─── Message Reply/Threading ──────────────────────────────────────────────
+
+    socket.on('message:reply', async (data: { parentId: string; content: string; channelId: string }) => {
+      try {
+        const { parentId, content, channelId } = data;
+
+        if (!content?.trim()) return;
+
+        // Verify parent message exists and access
+        const parentMessage = await prisma.message.findUnique({
+          where: { id: parentId },
+          include: {
+            channel: { include: { server: { include: { members: { where: { userId } } } } } },
+            author: true,
+          },
+        });
+
+        if (!parentMessage || parentMessage.channel?.server?.members?.length === 0) {
+          socket.emit('error', { message: 'Access denied' });
+          return;
+        }
+
+        // Create reply message
+        const reply = await prisma.message.create({
+          data: {
+            content: content.trim(),
+            authorId: userId,
+            channelId,
+            parentId,
+          },
+          select: {
+            id: true,
+            content: true,
+            edited: true,
+            channelId: true,
+            parentId: true,
+            createdAt: true,
+            author: { select: { id: true, username: true, avatar: true, status: true } },
+            attachments: true,
+            reactions: true,
+          },
+        });
+
+        // Increment parent replyCount
+        await prisma.message.update({
+          where: { id: parentId },
+          data: { replyCount: { increment: 1 } },
+        });
+
+        // Notify parent message author
+        if (parentMessage.author.id !== userId) {
+          const parentAuthor = await prisma.user.findUnique({
+            where: { id: parentMessage.author.id },
+            include: { notificationSettings: true },
+          });
+
+          if (parentAuthor && parentAuthor.notificationSettings?.replies) {
+            const notification = await prisma.notification.create({
+              data: {
+                userId: parentMessage.author.id,
+                type: 'MENTION', // Use MENTION for replies
+                title: `${socket.username} replied to your message`,
+                content: content.substring(0, 100),
+                data: {
+                  channelId,
+                  messageId: reply.id,
+                  parentId,
+                  authorId: userId,
+                  username: socket.username,
+                },
+              },
+            });
+
+            io.to(`user:${parentMessage.author.id}`).emit('notification:new', {
+              id: notification.id,
+              type: 'MENTION',
+              title: notification.title,
+              content: notification.content,
+              data: notification.data,
+            });
+          }
+        }
+
+        // Broadcast reply to channel
+        io.to(`channel:${channelId}`).emit('message:reply', reply);
+      } catch (error) {
+        console.error('[Socket] message:reply error:', error);
+        socket.emit('error', { message: 'Failed to send reply' });
+      }
+    });
+
     // ─── Typing Events ────────────────────────────────────────────────────────
 
     socket.on('typing:start', (channelId: string) => {
@@ -243,6 +374,114 @@ export function registerSocketHandlers(io: Server) {
 
     socket.on('typing:stop', (channelId: string) => {
       socket.to(`channel:${channelId}`).emit('typing:stop', { userId, channelId });
+    });
+
+    // ─── Message Pinning ──────────────────────────────────────────────────────
+
+    socket.on('message:pin', async (data: { messageId: string; channelId: string }) => {
+      try {
+        const message = await prisma.message.findUnique({
+          where: { id: data.messageId },
+          include: { channel: { include: { server: { include: { members: { where: { userId } } } } } } },
+        });
+
+        if (!message || !message.channel || message.channel.server.members.length === 0) {
+          socket.emit('error', { message: 'Access denied' });
+          return;
+        }
+
+        // Check permissions (owner/admin/moderator can pin)
+        const member = await prisma.serverMember.findUnique({
+          where: { userId_serverId: { userId, serverId: message.channel.serverId } },
+        });
+
+        if (!member || !['OWNER', 'ADMIN', 'MODERATOR'].includes(member.role)) {
+          socket.emit('error', { message: 'Insufficient permissions' });
+          return;
+        }
+
+        const updated = await prisma.message.update({
+          where: { id: data.messageId },
+          data: { pinned: true, pinnedAt: new Date(), pinnedById: userId },
+          select: {
+            id: true,
+            pinned: true,
+            pinnedAt: true,
+            channelId: true,
+          },
+        });
+
+        io.to(`channel:${data.channelId}`).emit('message:pinned', updated);
+      } catch (error) {
+        console.error('[Socket] message:pin error:', error);
+        socket.emit('error', { message: 'Failed to pin message' });
+      }
+    });
+
+    socket.on('message:unpin', async (data: { messageId: string; channelId: string }) => {
+      try {
+        const message = await prisma.message.findUnique({
+          where: { id: data.messageId },
+          include: { channel: { include: { server: { include: { members: { where: { userId } } } } } } },
+        });
+
+        if (!message || !message.channel || message.channel.server.members.length === 0) {
+          socket.emit('error', { message: 'Access denied' });
+          return;
+        }
+
+        const updated = await prisma.message.update({
+          where: { id: data.messageId },
+          data: { pinned: false, pinnedAt: null, pinnedById: null },
+          select: {
+            id: true,
+            pinned: true,
+            channelId: true,
+          },
+        });
+
+        io.to(`channel:${data.channelId}`).emit('message:unpinned', updated);
+      } catch (error) {
+        console.error('[Socket] message:unpin error:', error);
+        socket.emit('error', { message: 'Failed to unpin message' });
+      }
+    });
+
+    // ─── User Presence ────────────────────────────────────────────────────────
+
+    socket.on('user:setStatus', async (status: 'ONLINE' | 'IDLE' | 'DND' | 'OFFLINE') => {
+      try {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { status },
+        });
+
+        socket.broadcast.emit('user:statusChanged', { userId, status });
+      } catch (error) {
+        console.error('[Socket] user:setStatus error:', error);
+      }
+    });
+
+    socket.on('user:setCustomStatus', async (data: { status?: string; emoji?: string; expiresAt?: Date }) => {
+      try {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            customStatus: data.status,
+            customStatusEmoji: data.emoji,
+            statusExpiresAt: data.expiresAt,
+          },
+        });
+
+        socket.broadcast.emit('user:customStatusChanged', {
+          userId,
+          customStatus: data.status,
+          customStatusEmoji: data.emoji,
+          statusExpiresAt: data.expiresAt,
+        });
+      } catch (error) {
+        console.error('[Socket] user:setCustomStatus error:', error);
+      }
     });
 
     // ─── DM Events ───────────────────────────────────────────────────────────
@@ -313,7 +552,7 @@ export function registerSocketHandlers(io: Server) {
 
       await prisma.user.update({
         where: { id: userId },
-        data: { status: 'OFFLINE' },
+        data: { status: 'OFFLINE', lastSeenAt: new Date() },
       });
 
       socket.broadcast.emit('user:status', { userId, status: 'OFFLINE' });

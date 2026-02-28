@@ -17,6 +17,13 @@ import voiceRoutes from './routes/voice';
 import inviteRoutes from './routes/invites';
 import searchRoutes from './routes/search';
 import moderationRoutes from './routes/moderation';
+import notificationRoutes from './routes/notifications';
+import presenceRoutes from './routes/presence';
+import permissionsRoutes from './routes/permissions';
+import settingsRoutes from './routes/settings';
+import auditLogsRoutes from './routes/auditlogs';
+import rolesRoutes from './routes/roles';
+import discoveryRoutes from './routes/discovery';
 
 const app = express();
 const httpServer = createServer(app);
@@ -86,6 +93,13 @@ app.use('/api/voice', voiceRoutes);
 app.use('/api/invites', inviteRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/servers', moderationRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/presence', presenceRoutes);
+app.use('/api/permissions', permissionsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/audit', auditLogsRoutes);
+app.use('/api/roles', rolesRoutes);
+app.use('/api/discover', discoveryRoutes);
 
 // Health check
 app.get('/health', (_req: express.Request, res: express.Response) => {

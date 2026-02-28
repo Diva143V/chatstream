@@ -313,4 +313,124 @@ router.post('/:messageId/reactions', authenticate, async (req: AuthRequest, res:
   }
 });
 
+// GET /api/messages/:messageId/thread - Get message and its replies
+router.get('/:messageId/thread', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { messageId } = req.params;
+    const { limit = '50' } = req.query;
+    const take = Math.min(parseInt(limit as string), 100);
+
+    const parentMessage = await prisma.message.findUnique({
+      where: { id: messageId },
+      select: messageSelect,
+    });
+
+    if (!parentMessage) return res.status(404).json({ error: 'Message not found' });
+
+    // Get all replies
+    const replies = await prisma.message.findMany({
+      where: { parentId: messageId },
+      select: messageSelect,
+      orderBy: { createdAt: 'asc' },
+      take,
+    });
+
+    return res.json({
+      parent: parentMessage,
+      replies,
+    });
+  } catch (error) {
+    console.error('Get thread error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/messages/:messageId/pin - Pin a message
+router.post('/:messageId/pin', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { messageId } = req.params;
+
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { channel: { include: { server: { include: { members: { where: { userId: req.user!.id } } } } } } },
+    });
+
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+
+    const member = message.channel?.server.members[0];
+    if (!member || !['OWNER', 'ADMIN', 'MODERATOR'].includes(member.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const updated = await prisma.message.update({
+      where: { id: messageId },
+      data: { pinned: true, pinnedAt: new Date(), pinnedById: req.user!.id },
+      select: messageSelect,
+    });
+
+    return res.json({ message: updated });
+  } catch (error) {
+    console.error('Pin message error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/messages/:messageId/pin - Unpin a message
+router.delete('/:messageId/pin', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { messageId } = req.params;
+
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { channel: { include: { server: { include: { members: { where: { userId: req.user!.id } } } } } } },
+    });
+
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+
+    const member = message.channel?.server.members[0];
+    if (!member || !['OWNER', 'ADMIN', 'MODERATOR'].includes(member.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const updated = await prisma.message.update({
+      where: { id: messageId },
+      data: { pinned: false, pinnedAt: null, pinnedById: null },
+      select: messageSelect,
+    });
+
+    return res.json({ message: updated });
+  } catch (error) {
+    console.error('Unpin message error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/messages/channel/:channelId/pinned - Get pinned messages in channel
+router.get('/channel/:channelId/pinned', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { channelId } = req.params;
+
+    // Verify access
+    const channel = await prisma.channel.findUnique({
+      where: { id: channelId },
+      include: { server: { include: { members: { where: { userId: req.user!.id } } } } },
+    });
+
+    if (!channel || channel.server.members.length === 0) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const pinnedMessages = await prisma.message.findMany({
+      where: { channelId, pinned: true },
+      select: messageSelect,
+      orderBy: { pinnedAt: 'desc' },
+    });
+
+    return res.json({ messages: pinnedMessages });
+  } catch (error) {
+    console.error('Get pinned messages error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
